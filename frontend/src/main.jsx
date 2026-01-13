@@ -9,7 +9,7 @@ vkBridge.send('VKWebAppInit')
     console.log('VK Bridge initialized')
   })
   .catch((error) => {
-    console.error('VK Bridge init error:', error)
+    console.warn('VK Bridge init error (это нормально вне VK):', error)
   })
 
 ReactDOM.createRoot(document.getElementById('root')).render(
