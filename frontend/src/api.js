@@ -5,7 +5,7 @@
 import vkBridge from '@vkontakte/vk-bridge'
 
 // URL вашего API на Vercel
-const API_URL = import.meta.env.VITE_API_URL || 'https://flowers-miniapp-v2-0.vercel.app/api'
+const API_URL = 'https://flowers-miniapp.vercel.app/api'
 
 // Получаем параметры запуска VK
 let launchParams = null
