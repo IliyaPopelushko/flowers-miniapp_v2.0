@@ -36,8 +36,6 @@ jobs:
       - name: Build
         working-directory: ./frontend
         run: npm run build
-        env:
-          VITE_API_URL: https://flowers-miniapp-v2-0.vercel.app
       
       - name: Setup Pages
         uses: actions/configure-pages@v4
