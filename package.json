@@ -1,0 +1,11 @@
+{
+  "name": "flowers-miniapp",
+  "version": "1.0.0",
+  "description": "VK Mini App для цветочного магазина",
+  "scripts": {
+    "dev": "vercel dev"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0"
+  }
+}
