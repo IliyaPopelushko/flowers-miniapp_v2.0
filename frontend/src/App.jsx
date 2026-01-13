@@ -8,14 +8,15 @@ import {
   SplitCol,
   View,
   ScreenSpinner,
-  Snackbar
+  Snackbar,
+  Banner
 } from '@vkontakte/vkui'
 import '@vkontakte/vkui/dist/vkui.css'
 
 import Home from './panels/Home'
 import AddEvent from './panels/AddEvent'
 import EditEvent from './panels/EditEvent'
-import { initApi, getVkUser, saveUser, getEvents } from './api'
+import { initApi, getVkUser, saveUser, getEvents, isInVk } from './api'
 
 function App() {
   // Навигация
@@ -30,29 +31,40 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [snackbar, setSnackbar] = useState(null)
   const [appearance, setAppearance] = useState('light')
+  const [isDemo, setIsDemo] = useState(false)
 
   // Инициализация приложения
   useEffect(() => {
     async function init() {
+      console.log('🚀 Starting app initialization...')
+      
       try {
-        // Получаем тему VK (с обработкой ошибки вне VK)
+        // Инициализируем API
+        await initApi()
+        console.log('✅ API initialized')
+        
+        // Проверяем, в VK ли мы
+        const inVk = isInVk()
+        setIsDemo(!inVk)
+        console.log('📱 In VK:', inVk)
+
+        // Получаем тему VK
         try {
           const vkConfig = await vkBridge.send('VKWebAppGetConfig')
           setAppearance(vkConfig.appearance || 'light')
+          console.log('🎨 Theme:', vkConfig.appearance)
         } catch (e) {
-          console.warn('Не удалось получить конфиг VK:', e)
+          console.warn('Theme error (ok outside VK):', e.message)
         }
-
-        // Инициализируем API
-        await initApi()
 
         // Получаем данные пользователя VK
         try {
           const vkUser = await getVkUser()
           if (vkUser) {
             setUser(vkUser)
+            console.log('👤 VK User:', vkUser.first_name)
             
-            // Сохраняем пользователя в нашей БД
+            // Сохраняем пользователя в БД
             try {
               await saveUser({
                 first_name: vkUser.first_name,
@@ -60,26 +72,31 @@ function App() {
                 photo_url: vkUser.photo_200
               })
             } catch (e) {
-              console.warn('Не удалось сохранить пользователя:', e)
+              console.warn('Save user error:', e.message)
             }
           }
         } catch (e) {
-          console.warn('Не удалось получить данные пользователя VK:', e)
-          // Создаём тестового пользователя для отладки вне VK
+          console.warn('VK user error (ok outside VK):', e.message)
+        }
+        
+        // Если нет пользователя — создаём демо
+        if (!user) {
           setUser({
-            id: 1,
-            first_name: 'Тестовый',
-            last_name: 'Пользователь'
+            id: 0,
+            first_name: 'Гость',
+            last_name: ''
           })
         }
 
         // Загружаем события
+        console.log('📅 Loading events...')
         await loadEvents()
+        console.log('✅ Events loaded')
         
       } catch (error) {
-        console.error('Init error:', error)
-        showSnackbar('Ошибка загрузки', 'error')
+        console.error('❌ Init error:', error)
       } finally {
+        console.log('🏁 Initialization complete')
         setLoading(false)
       }
     }
@@ -87,25 +104,21 @@ function App() {
     init()
 
     // Подписываемся на изменение темы
-    const unsubscribe = vkBridge.subscribe((e) => {
+    vkBridge.subscribe((e) => {
       if (e.detail.type === 'VKWebAppUpdateConfig') {
         setAppearance(e.detail.data.appearance || 'light')
       }
     })
-
-    return () => {
-      // Cleanup если нужно
-    }
   }, [])
 
   // Загрузка событий
   async function loadEvents() {
     try {
       const result = await getEvents()
+      console.log('📅 Events result:', result)
       setEvents(result.events || [])
     } catch (error) {
-      console.warn('Load events error:', error)
-      // Не показываем ошибку при первой загрузке вне VK
+      console.warn('Load events error:', error.message)
       setEvents([])
     }
   }
@@ -154,7 +167,7 @@ function App() {
     goBack()
   }
 
-  // Рендер
+  // Рендер загрузки
   if (loading) {
     return (
       <ConfigProvider appearance={appearance}>
@@ -173,6 +186,23 @@ function App() {
         <AppRoot>
           <SplitLayout>
             <SplitCol>
+              {/* Баннер демо-режима */}
+              {isDemo && (
+                <Banner
+                  mode="image"
+                  size="s"
+                  header="Демо-режим"
+                  subheader="Откройте приложение в VK для полного функционала"
+                  background={
+                    <div style={{ 
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      width: '100%',
+                      height: '100%'
+                    }}/>
+                  }
+                />
+              )}
+              
               <View activePanel={activePanel}>
                 <Home
                   id="home"
