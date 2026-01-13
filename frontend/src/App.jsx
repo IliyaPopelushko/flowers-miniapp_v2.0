@@ -35,23 +35,41 @@ function App() {
   useEffect(() => {
     async function init() {
       try {
-        // Получаем тему VK
-        const vkAppearance = await vkBridge.send('VKWebAppGetConfig')
-        setAppearance(vkAppearance.appearance || 'light')
+        // Получаем тему VK (с обработкой ошибки вне VK)
+        try {
+          const vkConfig = await vkBridge.send('VKWebAppGetConfig')
+          setAppearance(vkConfig.appearance || 'light')
+        } catch (e) {
+          console.warn('Не удалось получить конфиг VK:', e)
+        }
 
         // Инициализируем API
         await initApi()
 
         // Получаем данные пользователя VK
-        const vkUser = await getVkUser()
-        if (vkUser) {
-          setUser(vkUser)
-          
-          // Сохраняем пользователя в нашей БД
-          await saveUser({
-            first_name: vkUser.first_name,
-            last_name: vkUser.last_name,
-            photo_url: vkUser.photo_200
+        try {
+          const vkUser = await getVkUser()
+          if (vkUser) {
+            setUser(vkUser)
+            
+            // Сохраняем пользователя в нашей БД
+            try {
+              await saveUser({
+                first_name: vkUser.first_name,
+                last_name: vkUser.last_name,
+                photo_url: vkUser.photo_200
+              })
+            } catch (e) {
+              console.warn('Не удалось сохранить пользователя:', e)
+            }
+          }
+        } catch (e) {
+          console.warn('Не удалось получить данные пользователя VK:', e)
+          // Создаём тестового пользователя для отладки вне VK
+          setUser({
+            id: 1,
+            first_name: 'Тестовый',
+            last_name: 'Пользователь'
           })
         }
 
@@ -69,11 +87,15 @@ function App() {
     init()
 
     // Подписываемся на изменение темы
-    vkBridge.subscribe((e) => {
+    const unsubscribe = vkBridge.subscribe((e) => {
       if (e.detail.type === 'VKWebAppUpdateConfig') {
         setAppearance(e.detail.data.appearance || 'light')
       }
     })
+
+    return () => {
+      // Cleanup если нужно
+    }
   }, [])
 
   // Загрузка событий
@@ -82,8 +104,9 @@ function App() {
       const result = await getEvents()
       setEvents(result.events || [])
     } catch (error) {
-      console.error('Load events error:', error)
-      showSnackbar('Ошибка загрузки событий', 'error')
+      console.warn('Load events error:', error)
+      // Не показываем ошибку при первой загрузке вне VK
+      setEvents([])
     }
   }
 
