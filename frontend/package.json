@@ -9,7 +9,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@vkontakte/icons": "^5.69.0",
     "@vkontakte/vk-bridge": "^2.14.1",
     "@vkontakte/vkui": "^6.4.0",
     "react": "^18.2.0",
