@@ -7,7 +7,6 @@ import {
   SplitLayout,
   SplitCol,
   View,
-  ScreenSpinner,
   Snackbar,
   Banner,
   Panel,
@@ -15,7 +14,8 @@ import {
   Group,
   Placeholder,
   Button,
-  Div
+  Div,
+  Spinner
 } from '@vkontakte/vkui'
 import { Icon56ErrorOutline } from '@vkontakte/icons'
 import '@vkontakte/vkui/dist/vkui.css'
@@ -24,6 +24,25 @@ import Home from './panels/Home'
 import AddEvent from './panels/AddEvent'
 import EditEvent from './panels/EditEvent'
 import { initApi, getVkUser, saveUser, getEvents, isInVk } from './api'
+
+// Функция с таймаутом для VK Bridge
+function vkBridgeWithTimeout(method, params = {}, timeout = 1000) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`VK Bridge timeout: ${method}`))
+    }, timeout)
+
+    vkBridge.send(method, params)
+      .then((result) => {
+        clearTimeout(timer)
+        resolve(result)
+      })
+      .catch((error) => {
+        clearTimeout(timer)
+        reject(error)
+      })
+  })
+}
 
 function App() {
   // Навигация
@@ -41,12 +60,6 @@ function App() {
   const [appearance, setAppearance] = useState('light')
   const [isDemo, setIsDemo] = useState(false)
 
-  // Логирование
-  useEffect(() => {
-    console.log('=== APP STARTED ===')
-    console.log('Initial state:', { loading, user, events })
-  }, [])
-
   // Инициализация
   useEffect(() => {
     async function initialize() {
@@ -60,21 +73,21 @@ function App() {
         setIsDemo(!inVk)
         console.log('✅ API initialized. In VK:', inVk)
 
-        // 2. Получаем тему
+        // 2. Получаем тему (с таймаутом)
         console.log('2. Getting theme...')
         try {
-          const vkConfig = await vkBridge.send('VKWebAppGetConfig')
+          const vkConfig = await vkBridgeWithTimeout('VKWebAppGetConfig', {}, 1000)
           setAppearance(vkConfig.appearance || 'light')
           console.log('✅ Theme:', vkConfig.appearance)
         } catch (e) {
-          console.warn('Theme error (ok outside VK):', e.message)
+          console.warn('⚠️ Theme error (ok outside VK):', e.message)
           setAppearance('light')
         }
 
-        // 3. Получаем пользователя
+        // 3. Получаем пользователя (с таймаутом)
         console.log('3. Getting user...')
         try {
-          const vkUser = await getVkUser()
+          const vkUser = await vkBridgeWithTimeout('VKWebAppGetUserInfo', {}, 1000)
           if (vkUser) {
             setUser(vkUser)
             console.log('✅ VK User:', vkUser.first_name)
@@ -87,14 +100,13 @@ function App() {
                 photo_url: vkUser.photo_200
               })
             } catch (e) {
-              console.warn('Save user error:', e.message)
+              console.warn('⚠️ Save user error:', e.message)
             }
           } else {
-            console.log('No VK user, using guest')
-            setUser({ id: 0, first_name: 'Гость', last_name: '' })
+            throw new Error('No user data')
           }
         } catch (e) {
-          console.warn('VK user error:', e.message)
+          console.warn('⚠️ VK user error:', e.message)
           setUser({ id: 0, first_name: 'Гость', last_name: '' })
         }
 
@@ -102,14 +114,14 @@ function App() {
         console.log('4. Loading events...')
         try {
           const result = await getEvents()
-          console.log('Events result:', result)
+          console.log('✅ Events loaded:', result.events?.length || 0)
           setEvents(result.events || [])
         } catch (e) {
-          console.error('Events error:', e.message)
+          console.warn('⚠️ Events error:', e.message)
           setEvents([])
         }
 
-        console.log('✅ Initialization complete')
+        console.log('✅ Initialization complete!')
       } catch (err) {
         console.error('❌ Initialization failed:', err)
         setError(err.message)
@@ -122,7 +134,7 @@ function App() {
     initialize()
   }, [])
 
-  // Хелперы
+  // Показать уведомление
   const showSnackbar = (message, type = 'success') => {
     setSnackbar(
       <Snackbar onClose={() => setSnackbar(null)} duration={3000}>
@@ -131,6 +143,7 @@ function App() {
     )
   }
 
+  // Навигация
   const goToPanel = (panel, data = null) => {
     if (panel === 'edit' && data) setEditingEvent(data)
     setActivePanel(panel)
@@ -141,38 +154,33 @@ function App() {
     setEditingEvent(null)
   }
 
-  // Обработчики событий
-  const handleEventCreated = async () => {
+  // Загрузка событий
+  const loadEvents = async () => {
     try {
       const result = await getEvents()
       setEvents(result.events || [])
-      showSnackbar('Событие добавлено!')
-      goBack()
     } catch (e) {
-      showSnackbar('Ошибка при обновлении списка', 'error')
+      console.error('Load events error:', e)
     }
+  }
+
+  // Обработчики
+  const handleEventCreated = async () => {
+    await loadEvents()
+    showSnackbar('Событие добавлено!')
+    goBack()
   }
 
   const handleEventUpdated = async () => {
-    try {
-      const result = await getEvents()
-      setEvents(result.events || [])
-      showSnackbar('Событие обновлено!')
-      goBack()
-    } catch (e) {
-      showSnackbar('Ошибка при обновлении списка', 'error')
-    }
+    await loadEvents()
+    showSnackbar('Событие обновлено!')
+    goBack()
   }
 
   const handleEventDeleted = async () => {
-    try {
-      const result = await getEvents()
-      setEvents(result.events || [])
-      showSnackbar('Событие удалено')
-      goBack()
-    } catch (e) {
-      showSnackbar('Ошибка при обновлении списка', 'error')
-    }
+    await loadEvents()
+    showSnackbar('Событие удалено')
+    goBack()
   }
 
   // Рендер ошибки
@@ -181,7 +189,7 @@ function App() {
       <ConfigProvider appearance={appearance}>
         <AdaptivityProvider>
           <AppRoot>
-            <Panel>
+            <Panel id="error">
               <PanelHeader>Ошибка</PanelHeader>
               <Group>
                 <Placeholder
@@ -209,8 +217,18 @@ function App() {
       <ConfigProvider appearance={appearance}>
         <AdaptivityProvider>
           <AppRoot>
-            <Div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <ScreenSpinner size="large" />
+            <Div style={{
+              height: '100vh',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '16px'
+            }}>
+              <Spinner size="large" />
+              <div style={{ color: 'var(--vkui--color_text_secondary)' }}>
+                Загрузка...
+              </div>
             </Div>
           </AppRoot>
         </AdaptivityProvider>
@@ -248,7 +266,7 @@ function App() {
                   events={events}
                   onAddEvent={() => goToPanel('add')}
                   onEditEvent={(event) => goToPanel('edit', event)}
-                  onRefresh={() => getEvents().then(r => setEvents(r.events || []))}
+                  onRefresh={loadEvents}
                 />
 
                 <AddEvent
