@@ -9,6 +9,7 @@ const API_URL = 'https://flowers-miniapp-v2-0.vercel.app/api'
 
 // Получаем параметры запуска VK
 let launchParams = null
+let isVkEnvironment = false
 
 export async function initApi() {
   try {
@@ -16,10 +17,31 @@ export async function initApi() {
     const searchParams = new URLSearchParams(window.location.search)
     launchParams = Object.fromEntries(searchParams.entries())
     
+    // Проверяем, есть ли vk_user_id — значит мы в VK
+    isVkEnvironment = !!launchParams.vk_user_id
+    
     console.log('Launch params:', launchParams)
+    console.log('Is VK environment:', isVkEnvironment)
+    
     return launchParams
   } catch (error) {
     console.error('Init API error:', error)
+    return null
+  }
+}
+
+// Проверяем, работаем ли мы в VK
+export function isInVk() {
+  return isVkEnvironment
+}
+
+// Получаем данные пользователя VK
+export async function getVkUser() {
+  try {
+    const user = await vkBridge.send('VKWebAppGetUserInfo')
+    return user
+  } catch (error) {
+    console.warn('Get VK user error:', error)
     return null
   }
 }
