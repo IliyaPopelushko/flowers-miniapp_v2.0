@@ -67,7 +67,6 @@ function AddEvent({ id, onBack, onSuccess, showSnackbar }) {
     const type = e.target.value
     setEventType(type)
     
-    // Автозаполняем даты для фиксированных праздников
     if (type === 'valentines') {
       setEventDay('14')
       setEventMonth('2')
@@ -101,7 +100,6 @@ function AddEvent({ id, onBack, onSuccess, showSnackbar }) {
         const allowed = await requestMessagesPermission()
         if (!allowed) {
           showSnackbar('Разрешите сообщения для получения напоминаний', 'error')
-          // Продолжаем сохранение, но уведомления не будут приходить
         }
       }
 
@@ -133,7 +131,6 @@ function AddEvent({ id, onBack, onSuccess, showSnackbar }) {
       </PanelHeader>
 
       <Group>
-        {/* Тип события */}
         <FormItem top="Тип события">
           <Select
             placeholder="Выберите тип"
@@ -143,7 +140,6 @@ function AddEvent({ id, onBack, onSuccess, showSnackbar }) {
           />
         </FormItem>
 
-        {/* Название (если "Другое") */}
         {eventType === 'other' && (
           <FormItem top="Название события">
             <Input
@@ -155,7 +151,6 @@ function AddEvent({ id, onBack, onSuccess, showSnackbar }) {
           </FormItem>
         )}
 
-        {/* Дата */}
         <FormLayoutGroup mode="horizontal">
           <FormItem top="День">
             <Select
@@ -177,7 +172,6 @@ function AddEvent({ id, onBack, onSuccess, showSnackbar }) {
           </FormItem>
         </FormLayoutGroup>
 
-        {/* Имя получателя */}
         <FormItem top="Кого поздравляем?">
           <Input
             placeholder="Имя получателя"
@@ -187,7 +181,6 @@ function AddEvent({ id, onBack, onSuccess, showSnackbar }) {
           />
         </FormItem>
 
-        {/* Комментарий */}
         <FormItem top="Комментарий (необязательно)">
           <Textarea
             placeholder="Любые заметки для себя..."
@@ -197,7 +190,6 @@ function AddEvent({ id, onBack, onSuccess, showSnackbar }) {
           />
         </FormItem>
 
-        {/* Согласие на уведомления */}
         <FormItem>
           <Checkbox
             checked={notificationsEnabled}
