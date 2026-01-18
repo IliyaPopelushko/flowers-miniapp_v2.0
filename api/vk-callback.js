@@ -1,6 +1,5 @@
 // ============================================
 // POST /api/vk-callback — VK Callback API
-// Принимает события от VK (сообщения и т.д.)
 // ============================================
 
 const { supabase } = require('../lib/supabase');
@@ -8,76 +7,77 @@ const { sendMessage, isAdmin } = require('../lib/vk');
 
 const VK_GROUP_ID = process.env.VK_GROUP_ID || '136756716';
 const VK_CONFIRMATION_CODE = process.env.VK_CONFIRMATION_CODE;
+const ADMIN_IDS = [518565944, 123456789];
+
+// Букеты
+const BOUQUETS = {
+  economy: { id: 'economy', name: 'Нежность', price: 1500 },
+  medium: { id: 'medium', name: 'Элегантность', price: 2500 },
+  premium: { id: 'premium', name: 'Роскошь', price: 4000 }
+};
+
+// Состояния диалогов пользователей
+const userStates = {};
 
 module.exports = async function handler(req, res) {
-  // VK отправляет только POST
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const { type, group_id, object, secret } = req.body;
+    const { type, group_id, object } = req.body;
 
-    // Проверяем group_id
     if (String(group_id) !== String(VK_GROUP_ID)) {
-      console.error('Wrong group_id:', group_id);
       return res.status(400).send('Wrong group');
     }
 
-    // Обработка типов событий
     switch (type) {
-      // Подтверждение сервера для VK
       case 'confirmation':
-        if (!VK_CONFIRMATION_CODE) {
-          console.error('VK_CONFIRMATION_CODE not set');
-          return res.status(500).send('Confirmation code not configured');
-        }
         return res.status(200).send(VK_CONFIRMATION_CODE);
 
-      // Новое сообщение
       case 'message_new':
         await handleNewMessage(object.message);
         return res.status(200).send('ok');
 
-      // Разрешение на сообщения
       case 'message_allow':
         await handleMessageAllow(object.user_id);
         return res.status(200).send('ok');
 
-      // Запрет сообщений
       case 'message_deny':
         await handleMessageDeny(object.user_id);
         return res.status(200).send('ok');
 
       default:
-        // Для всех остальных событий просто отвечаем ok
         return res.status(200).send('ok');
     }
 
   } catch (error) {
     console.error('VK Callback error:', error);
-    // VK требует ответ 'ok' даже при ошибке, иначе будет слать повторно
     return res.status(200).send('ok');
   }
 };
 
-/**
- * Обработка нового сообщения
- */
 async function handleNewMessage(message) {
   const userId = message.from_id;
   const text = message.text?.toLowerCase().trim();
   const payload = message.payload ? JSON.parse(message.payload) : null;
 
-  console.log(`📩 Новое сообщение от ${userId}: ${text}`);
+  console.log(`📩 Message from ${userId}: ${text || '[payload]'}`);
 
   // Обработка payload от кнопок
   if (payload) {
-    await handlePayload(userId, payload);
+    await handlePayload(userId, payload, message);
     return;
   }
 
-  // Простые текстовые команды
+  // Проверяем состояние диалога
+  const state = userStates[userId];
+  if (state) {
+    await handleDialogState(userId, text, message);
+    return;
+  }
+
+  // Текстовые команды
   if (text === 'начать' || text === 'start' || text === 'привет') {
     await sendWelcomeMessage(userId);
     return;
@@ -88,48 +88,35 @@ async function handleNewMessage(message) {
     return;
   }
 
-  // По умолчанию — приветствие
   await sendDefaultMessage(userId);
 }
 
-/**
- * Пользователь разрешил сообщения
- */
-async function handleMessageAllow(userId) {
-  console.log(`✅ Пользователь ${userId} разрешил сообщения`);
-  
-  await supabase
-    .from('users')
-    .update({ messages_allowed: true })
-    .eq('vk_user_id', userId);
-}
-
-/**
- * Пользователь запретил сообщения
- */
-async function handleMessageDeny(userId) {
-  console.log(`❌ Пользователь ${userId} запретил сообщения`);
-  
-  await supabase
-    .from('users')
-    .update({ messages_allowed: false })
-    .eq('vk_user_id', userId);
-}
-
-/**
- * Обработка payload от кнопок
- */
-async function handlePayload(userId, payload) {
+async function handlePayload(userId, payload, message) {
   const { action, bouquet_id, event_id } = payload;
 
   switch (action) {
     case 'select_bouquet':
-      // TODO: Обработка выбора букета (Фаза MVP)
-      await sendMessage(userId, '💐 Вы выбрали букет! Функция оформления предзаказа скоро будет доступна.');
+      await handleBouquetSelection(userId, bouquet_id, event_id);
+      break;
+
+    case 'delivery_self':
+      await handleSelfPickup(userId);
+      break;
+
+    case 'delivery_delivery':
+      await handleDeliveryStart(userId);
+      break;
+
+    case 'confirm_preorder':
+      await confirmPreorder(userId);
+      break;
+
+    case 'cancel_preorder':
+      await cancelPreorder(userId);
       break;
 
     case 'remind_later':
-      await sendMessage(userId, '👌 Хорошо, напомним позже!');
+      await sendMessage(userId, '👌 Хорошо, напомню позже!');
       break;
 
     default:
@@ -137,53 +124,386 @@ async function handlePayload(userId, payload) {
   }
 }
 
-/**
- * Приветственное сообщение
- */
+// Обработка выбора букета
+async function handleBouquetSelection(userId, bouquetId, eventId) {
+  const bouquet = BOUQUETS[bouquetId];
+  if (!bouquet) {
+    await sendMessage(userId, 'Букет не найден. Попробуйте ещё раз.');
+    return;
+  }
+
+  // Получаем событие
+  const { data: event } = await supabase
+    .from('events')
+    .select('*')
+    .eq('id', eventId)
+    .single();
+
+  if (!event) {
+    await sendMessage(userId, 'Событие не найдено. Попробуйте ещё раз.');
+    return;
+  }
+
+  // Сохраняем состояние
+  userStates[userId] = {
+    step: 'select_delivery',
+    bouquet: bouquet,
+    event: event,
+    preorder: {
+      bouquet_id: bouquetId,
+      bouquet_name: bouquet.name,
+      bouquet_price: bouquet.price,
+      event_id: eventId
+    }
+  };
+
+  const message = `Отличный выбор! 💐
+
+Букет: ${bouquet.name}
+Цена: ${bouquet.price}₽
+
+Как хотите получить заказ?`;
+
+  const keyboard = {
+    inline: true,
+    buttons: [
+      [
+        {
+          action: {
+            type: 'text',
+            label: '🏪 Самовывоз',
+            payload: JSON.stringify({ action: 'delivery_self' })
+          },
+          color: 'positive'
+        }
+      ],
+      [
+        {
+          action: {
+            type: 'text',
+            label: '🚗 Доставка',
+            payload: JSON.stringify({ action: 'delivery_delivery' })
+          },
+          color: 'primary'
+        }
+      ],
+      [
+        {
+          action: {
+            type: 'text',
+            label: '❌ Отмена',
+            payload: JSON.stringify({ action: 'cancel_preorder' })
+          },
+          color: 'secondary'
+        }
+      ]
+    ]
+  };
+
+  await sendMessage(userId, message, keyboard);
+}
+
+// Самовывоз
+async function handleSelfPickup(userId) {
+  const state = userStates[userId];
+  if (!state) {
+    await sendMessage(userId, 'Что-то пошло не так. Начните заново.');
+    return;
+  }
+
+  state.preorder.delivery_type = 'self_pickup';
+  state.step = 'confirm';
+
+  const eventDate = `${state.event.event_day}.${String(state.event.event_month).padStart(2, '0')}`;
+
+  const message = `Подтвердите предзаказ:
+
+💐 Букет: ${state.bouquet.name}
+💰 Цена: ${state.bouquet.price}₽
+📅 Дата: ${eventDate}
+🏪 Самовывоз
+
+📍 Адрес: посёлок Лесопарк 30
+🕐 Время работы: с 8:00 до 21:00`;
+
+  const keyboard = {
+    inline: true,
+    buttons: [
+      [
+        {
+          action: {
+            type: 'text',
+            label: '✅ Подтвердить',
+            payload: JSON.stringify({ action: 'confirm_preorder' })
+          },
+          color: 'positive'
+        }
+      ],
+      [
+        {
+          action: {
+            type: 'text',
+            label: '❌ Отмена',
+            payload: JSON.stringify({ action: 'cancel_preorder' })
+          },
+          color: 'secondary'
+        }
+      ]
+    ]
+  };
+
+  await sendMessage(userId, message, keyboard);
+}
+
+// Начало оформления доставки
+async function handleDeliveryStart(userId) {
+  const state = userStates[userId];
+  if (!state) {
+    await sendMessage(userId, 'Что-то пошло не так. Начните заново.');
+    return;
+  }
+
+  state.preorder.delivery_type = 'delivery';
+  state.step = 'enter_address';
+
+  await sendMessage(userId, '📍 Введите адрес доставки:');
+}
+
+// Обработка диалога
+async function handleDialogState(userId, text, message) {
+  const state = userStates[userId];
+
+  switch (state.step) {
+    case 'enter_address':
+      state.preorder.delivery_address = text;
+      state.step = 'enter_phone';
+      await sendMessage(userId, '📞 Введите контактный телефон:');
+      break;
+
+    case 'enter_phone':
+      state.preorder.recipient_phone = text;
+      state.step = 'enter_time';
+      await sendMessage(userId, '🕐 Укажите желаемое время доставки (например: 14:00-16:00):');
+      break;
+
+    case 'enter_time':
+      state.preorder.delivery_time = text;
+      state.step = 'confirm';
+      await showDeliveryConfirmation(userId);
+      break;
+
+    default:
+      delete userStates[userId];
+      await sendDefaultMessage(userId);
+  }
+}
+
+// Показать подтверждение доставки
+async function showDeliveryConfirmation(userId) {
+  const state = userStates[userId];
+  const eventDate = `${state.event.event_day}.${String(state.event.event_month).padStart(2, '0')}`;
+
+  const message = `Подтвердите предзаказ:
+
+💐 Букет: ${state.bouquet.name}
+💰 Цена: ${state.bouquet.price}₽ + доставка
+📅 Дата: ${eventDate}
+🚗 Доставка
+
+📍 Адрес: ${state.preorder.delivery_address}
+📞 Телефон: ${state.preorder.recipient_phone}
+🕐 Время: ${state.preorder.delivery_time}`;
+
+  const keyboard = {
+    inline: true,
+    buttons: [
+      [
+        {
+          action: {
+            type: 'text',
+            label: '✅ Подтвердить',
+            payload: JSON.stringify({ action: 'confirm_preorder' })
+          },
+          color: 'positive'
+        }
+      ],
+      [
+        {
+          action: {
+            type: 'text',
+            label: '❌ Отмена',
+            payload: JSON.stringify({ action: 'cancel_preorder' })
+          },
+          color: 'secondary'
+        }
+      ]
+    ]
+  };
+
+  await sendMessage(userId, message, keyboard);
+}
+
+// Подтверждение предзаказа
+async function confirmPreorder(userId) {
+  const state = userStates[userId];
+  if (!state || !state.preorder) {
+    await sendMessage(userId, 'Что-то пошло не так. Начните заново.');
+    return;
+  }
+
+  try {
+    // Сохраняем предзаказ в БД
+    const preorderData = {
+      vk_user_id: userId,
+      event_id: state.event.id,
+      bouquet_vk_id: state.preorder.bouquet_id,
+      bouquet_name: state.preorder.bouquet_name,
+      bouquet_price: state.preorder.bouquet_price,
+      final_price: state.preorder.bouquet_price,
+      delivery_type: state.preorder.delivery_type,
+      delivery_address: state.preorder.delivery_address || null,
+      delivery_time: state.preorder.delivery_time || null,
+      recipient_phone: state.preorder.recipient_phone || null,
+      recipient_name: state.event.recipient_name,
+      delivery_date: `2025-${String(state.event.event_month).padStart(2, '0')}-${String(state.event.event_day).padStart(2, '0')}`,
+      status: 'new'
+    };
+
+    const { data: preorder, error } = await supabase
+      .from('preorders')
+      .insert(preorderData)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Обновляем статус события
+    await supabase
+      .from('events')
+      .update({ status: 'preordered' })
+      .eq('id', state.event.id);
+
+    // Отправляем подтверждение клиенту
+    const eventDate = `${state.event.event_day}.${String(state.event.event_month).padStart(2, '0')}`;
+    
+    let confirmMessage = `✅ Предзаказ оформлен!
+
+💐 Букет: ${state.bouquet.name}
+💰 Цена: ${state.bouquet.price}₽
+📅 Дата: ${eventDate}
+`;
+
+    if (state.preorder.delivery_type === 'self_pickup') {
+      confirmMessage += `🏪 Самовывоз
+
+📍 Адрес: посёлок Лесопарк 30
+🕐 Время работы: с 8:00 до 21:00
+
+Напомним тебе за день до события!`;
+    } else {
+      confirmMessage += `🚗 Доставка
+
+📍 Адрес: ${state.preorder.delivery_address}
+📞 Телефон: ${state.preorder.recipient_phone}
+🕐 Время: ${state.preorder.delivery_time}
+
+Администратор свяжется с тобой для подтверждения!`;
+    }
+
+    await sendMessage(userId, confirmMessage);
+
+    // Уведомляем админов
+    await notifyAdmins(preorder, state);
+
+    // Очищаем состояние
+    delete userStates[userId];
+
+  } catch (error) {
+    console.error('Error creating preorder:', error);
+    await sendMessage(userId, '❌ Ошибка при создании предзаказа. Попробуйте позже или свяжитесь с нами напрямую.');
+    delete userStates[userId];
+  }
+}
+
+// Отмена предзаказа
+async function cancelPreorder(userId) {
+  delete userStates[userId];
+  await sendMessage(userId, '❌ Предзаказ отменён. Если передумаете — мы всегда рядом! 🌸');
+}
+
+// Уведомление админов
+async function notifyAdmins(preorder, state) {
+  const eventDate = `${state.event.event_day}.${String(state.event.event_month).padStart(2, '0')}`;
+  
+  let adminMessage = `🔔 Новый предзаказ!
+
+👤 Клиент: vk.com/id${preorder.vk_user_id}
+📅 Событие: ${state.event.recipient_name} — ${eventDate}
+
+💐 Букет: ${preorder.bouquet_name}
+💰 Цена: ${preorder.bouquet_price}₽
+
+`;
+
+  if (preorder.delivery_type === 'self_pickup') {
+    adminMessage += `🏪 Самовывоз`;
+  } else {
+    adminMessage += `🚗 Доставка
+📍 Адрес: ${preorder.delivery_address}
+📞 Телефон: ${preorder.recipient_phone}
+🕐 Время: ${preorder.delivery_time}`;
+  }
+
+  for (const adminId of ADMIN_IDS) {
+    await sendMessage(adminId, adminMessage);
+    console.log(`📤 Notified admin ${adminId}`);
+  }
+}
+
+async function handleMessageAllow(userId) {
+  console.log(`✅ User ${userId} allowed messages`);
+  await supabase
+    .from('users')
+    .update({ messages_allowed: true })
+    .eq('vk_user_id', userId);
+}
+
+async function handleMessageDeny(userId) {
+  console.log(`❌ User ${userId} denied messages`);
+  await supabase
+    .from('users')
+    .update({ messages_allowed: false })
+    .eq('vk_user_id', userId);
+}
+
 async function sendWelcomeMessage(userId) {
   const message = `Привет! 🌸
 
 Я бот цветочного магазина "Цветы в лесопарке".
 
-Я помогу тебе не забыть о важных датах и вовремя заказать цветы для близких!
+Я помогу не забыть о важных датах и вовремя заказать цветы!
 
-Чтобы добавить памятные даты, открой наше мини-приложение в группе.
-
-📍 Мы находимся: посёлок Лесопарк 30
-🕐 Работаем: с 8:00 до 21:00
-📞 Телефон: +7 912 797 1348`;
+📍 посёлок Лесопарк 30
+🕐 с 8:00 до 21:00
+📞 +7 912 797 1348`;
 
   await sendMessage(userId, message);
 }
 
-/**
- * Сообщение помощи
- */
 async function sendHelpMessage(userId) {
-  const message = `❓ Чем я могу помочь?
+  const message = `❓ Чем помочь?
 
-🌷 Добавить памятные даты — открой мини-приложение в нашей группе
+🌷 Добавить даты — открой мини-приложение в группе
+🔔 Я напомню за 7, 3 и 1 день
+💐 Можешь оформить предзаказ из напоминания
 
-🔔 Я буду напоминать тебе за 7, 3 и 1 день до события
-
-💐 Можешь оформить предзаказ прямо в сообщениях
-
-📍 Адрес: посёлок Лесопарк 30
-🕐 Время работы: с 8:00 до 21:00
-📞 Телефон: +7 912 797 1348`;
+📍 посёлок Лесопарк 30
+🕐 с 8:00 до 21:00
+📞 +7 912 797 1348`;
 
   await sendMessage(userId, message);
 }
 
-/**
- * Сообщение по умолчанию
- */
 async function sendDefaultMessage(userId) {
-  const message = `Привет! 👋
-
-Напиши "помощь" чтобы узнать что я умею, или открой наше мини-приложение в группе, чтобы добавить памятные даты.
-
-💐 Магазин "Цветы в лесопарке"`;
-
-  await sendMessage(userId, message);
+  await sendMessage(userId, 'Напиши "помощь" чтобы узнать что я умею 🌸');
 }
