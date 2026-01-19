@@ -3,7 +3,7 @@ import { supabase } from '../../../lib/supabase.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const VK_APP_ID = process.env.VK_APP_ID;
-const VK_APP_SECRET = process.env.VK_APP_SECRET;
+const VK_APP_SECRET = process.env.VK_SECRET_KEY;
 const ADMIN_URL = process.env.ADMIN_URL || 'https://your-domain.vercel.app/admin';
 
 export default async function handler(req, res) {
