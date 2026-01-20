@@ -1,6 +1,7 @@
 {
   "name": "flowers-miniapp",
   "version": "1.0.0",
+  "type": "module",
   "description": "VK Mini App для цветочного магазина",
   "scripts": {
     "dev": "vercel dev"
