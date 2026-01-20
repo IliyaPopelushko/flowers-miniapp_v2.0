@@ -1,20 +1,33 @@
 {
   "version": 2,
-  "framework": null,
-  "buildCommand": "cd frontend && npm install && npm run build && cd ../admin && npm install && npm run build",
-  "outputDirectory": "frontend/dist",
   "routes": [
+    {
+      "src": "/api/admin/auth",
+      "dest": "/api/admin-auth.js"
+    },
+    {
+      "src": "/api/admin/events",
+      "dest": "/api/admin-events.js"
+    },
+    {
+      "src": "/api/admin/preorders",
+      "dest": "/api/admin-preorders.js"
+    },
+    {
+      "src": "/api/admin/settings",
+      "dest": "/api/admin-settings.js"
+    },
     {
       "src": "/api/(.*)",
       "dest": "/api/$1.js"
     },
     {
-      "src": "/admin/(.*)",
-      "dest": "/admin/dist/$1"
-    },
-    {
       "src": "/admin",
       "dest": "/admin/dist/index.html"
+    },
+    {
+      "src": "/admin/(.*)",
+      "dest": "/admin/dist/$1"
     },
     {
       "src": "/(.*)",
