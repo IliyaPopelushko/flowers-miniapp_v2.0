@@ -3,7 +3,7 @@
 // Отправка напоминаний о событиях
 // ============================================
 
-const { supabase } = require('../../lib/supabase');
+import { supabase } from '../lib/supabase.js';
 const { sendMessage } = require('../../lib/vk');
 
 const CRON_SECRET = process.env.CRON_SECRET || 'your-secret-key';
