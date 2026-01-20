@@ -2,7 +2,7 @@
 // /api/events/[id] — Операции с конкретным событием
 // ============================================
 
-const { supabase } = require('../../lib/supabase');
+import { supabase } from '../lib/supabase.js';
 const { extractVkUserId } = require('../../lib/vk');
 
 module.exports = async function handler(req, res) {
