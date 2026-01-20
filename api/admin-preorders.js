@@ -3,7 +3,8 @@ import { supabase } from '../lib/supabase.js';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
-async function checkAdmin(req) {
+// Простая проверка — только валидность токена
+function checkAdmin(req) {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
     return null;
@@ -12,20 +13,14 @@ async function checkAdmin(req) {
   try {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, JWT_SECRET);
-
-    const { data: settings } = await supabase
-      .from('settings')
-      .select('value')
-      .eq('key', 'admin_vk_ids')
-      .single();
-
-    if (!settings?.value?.includes(decoded.vk_id)) {
-      return null;
+    
+    if (decoded.role === 'admin') {
+      return decoded;
     }
-
-    return decoded;
+    
+    return null;
   } catch (error) {
-    console.error('CheckAdmin error:', error.message);
+    console.error('Token verification error:', error.message);
     return null;
   }
 }
@@ -40,7 +35,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const admin = await checkAdmin(req);
+    const admin = checkAdmin(req);
     if (!admin) {
       return res.status(401).json({ error: 'Не авторизован' });
     }
@@ -55,8 +50,8 @@ export default async function handler(req, res) {
           events (
             event_type,
             event_day,
-            recipient_name,
-            user_name
+            event_month,
+            recipient_name
           )
         `)
         .order('created_at', { ascending: false });
@@ -75,9 +70,9 @@ export default async function handler(req, res) {
       const formattedPreorders = preorders.map(p => ({
         ...p,
         event_type: p.events?.event_type,
-        event_date: p.events?.event_day,  // ← Маппим event_day → event_date для фронта
-        recipient_name: p.recipient_name || p.events?.recipient_name,
-        user_name: p.events?.user_name
+        event_day: p.events?.event_day,
+        event_month: p.events?.event_month,
+        recipient_name: p.recipient_name || p.events?.recipient_name
       }));
 
       return res.status(200).json({ preorders: formattedPreorders });
