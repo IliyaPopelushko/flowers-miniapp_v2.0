@@ -108,7 +108,7 @@ function Events() {
       if (search) params.search = search;
       if (dateFrom) params.dateFrom = dateFrom;
       if (dateTo) params.dateTo = dateTo;
-      
+
       const data = await api.getEvents(params);
       setEvents(data.events || []);
     } catch (e) {
@@ -122,6 +122,7 @@ function Events() {
   };
 
   const formatDate = (dateStr) => {
+    if (!dateStr) return '—';
     const date = new Date(dateStr);
     return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
   };
@@ -155,7 +156,7 @@ function Events() {
           value={dateTo}
           onChange={(e) => setDateTo(e.target.value)}
         />
-        <button 
+        <button
           onClick={handleFilter}
           style={{...styles.input, background: '#e91e63', color: '#fff', border: 'none', cursor: 'pointer'}}
         >
@@ -186,9 +187,9 @@ function Events() {
             {events.map((event) => (
               <tr key={event.id}>
                 <td style={styles.td}>
-                  <a 
-                    href={`https://vk.com/id${event.vk_user_id}`} 
-                    target="_blank" 
+                  <a
+                    href={`https://vk.com/id${event.vk_user_id}`}
+                    target="_blank"
                     rel="noopener noreferrer"
                     style={styles.link}
                   >
@@ -199,7 +200,7 @@ function Events() {
                   {eventTypeLabels[event.event_type] || event.event_type}
                   {event.custom_event_name && ` (${event.custom_event_name})`}
                 </td>
-                <td style={styles.td}>{formatDate(event.event_date)}</td>
+                <td style={styles.td}>{formatDate(event.event_day)}</td>
                 <td style={styles.td}>{event.recipient_name}</td>
                 <td style={styles.td}>
                   <span style={{
