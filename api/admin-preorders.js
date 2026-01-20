@@ -1,9 +1,8 @@
 import jwt from 'jsonwebtoken';
 import { supabase } from '../lib/supabase.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET;
 
-// Middleware для проверки админа
 async function checkAdmin(req) {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
@@ -13,25 +12,20 @@ async function checkAdmin(req) {
   try {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, JWT_SECRET);
-    
-    // Проверяем роль (при входе по паролю ставится role: 'admin')
-    if (decoded.role === 'admin') {
-      return decoded;
-    }
-    
-    // Или проверяем vk_id в списке админов
+
     const { data: settings } = await supabase
       .from('settings')
       .select('value')
       .eq('key', 'admin_vk_ids')
       .single();
 
-    if (settings?.value?.includes(decoded.vk_id)) {
-      return decoded;
+    if (!settings?.value?.includes(decoded.vk_id)) {
+      return null;
     }
 
-    return null;
-  } catch {
+    return decoded;
+  } catch (error) {
+    console.error('CheckAdmin error:', error.message);
     return null;
   }
 }
@@ -40,18 +34,17 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, PATCH, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  
+
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
-  const admin = await checkAdmin(req);
-  if (!admin) {
-    return res.status(401).json({ error: 'Не авторизован' });
-  }
-
   try {
-    // GET — список предзаказов
+    const admin = await checkAdmin(req);
+    if (!admin) {
+      return res.status(401).json({ error: 'Не авторизован' });
+    }
+
     if (req.method === 'GET') {
       const { status } = req.query;
 
@@ -61,7 +54,7 @@ export default async function handler(req, res) {
           *,
           events (
             event_type,
-            event_date,
+            event_day,
             recipient_name,
             user_name
           )
@@ -79,11 +72,10 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: 'Ошибка загрузки предзаказов' });
       }
 
-      // Преобразуем данные для фронта
       const formattedPreorders = preorders.map(p => ({
         ...p,
         event_type: p.events?.event_type,
-        event_date: p.events?.event_date,
+        event_date: p.events?.event_day,  // ← Маппим event_day → event_date для фронта
         recipient_name: p.recipient_name || p.events?.recipient_name,
         user_name: p.events?.user_name
       }));
@@ -91,7 +83,6 @@ export default async function handler(req, res) {
       return res.status(200).json({ preorders: formattedPreorders });
     }
 
-    // PATCH — обновление статуса
     if (req.method === 'PATCH') {
       const { id, status } = req.body;
 
@@ -106,7 +97,7 @@ export default async function handler(req, res) {
 
       const { data, error } = await supabase
         .from('preorders')
-        .update({ 
+        .update({
           status,
           updated_at: new Date().toISOString()
         })
