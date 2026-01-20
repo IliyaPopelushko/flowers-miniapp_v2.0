@@ -2,7 +2,7 @@
 // /api/events — Управление событиями
 // ============================================
 
-const { supabase } = require('../lib/supabase');
+import { supabase } from '../lib/supabase.js';
 const { verifyVKSignature, extractVkUserId } = require('../lib/vk');
 
 // CORS headers
