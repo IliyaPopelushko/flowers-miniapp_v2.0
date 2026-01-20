@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
+// Middleware для проверки админа
 async function checkAdmin(req) {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
@@ -13,17 +14,23 @@ async function checkAdmin(req) {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, JWT_SECRET);
     
+    // Проверяем роль (при входе по паролю ставится role: 'admin')
+    if (decoded.role === 'admin') {
+      return decoded;
+    }
+    
+    // Или проверяем vk_id в списке админов
     const { data: settings } = await supabase
       .from('settings')
       .select('value')
       .eq('key', 'admin_vk_ids')
       .single();
 
-    if (!settings?.value?.includes(decoded.vk_id)) {
-      return null;
+    if (settings?.value?.includes(decoded.vk_id)) {
+      return decoded;
     }
 
-    return decoded;
+    return null;
   } catch {
     return null;
   }
