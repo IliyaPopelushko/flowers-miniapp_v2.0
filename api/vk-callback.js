@@ -2,7 +2,7 @@
 // POST /api/vk-callback — VK Callback API
 // ============================================
 
-const { supabase } = require('../lib/supabase');
+import { supabase } from '../lib/supabase.js';
 const { sendMessage, isAdmin } = require('../lib/vk');
 
 const VK_GROUP_ID = process.env.VK_GROUP_ID || '136756716';
