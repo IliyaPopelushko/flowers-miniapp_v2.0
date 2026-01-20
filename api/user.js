@@ -4,7 +4,7 @@
 // POST — создать/обновить пользователя
 // ============================================
 
-const { supabase } = require('../lib/supabase');
+import { supabase } from '../lib/supabase.js';
 const { verifyVKSignature, extractVkUserId } = require('../lib/vk');
 
 module.exports = async function handler(req, res) {
