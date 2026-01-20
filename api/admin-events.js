@@ -3,7 +3,8 @@ import { supabase } from '../lib/supabase.js';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
-async function checkAdmin(req) {
+// Простая проверка — только валидность токена
+function checkAdmin(req) {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
     return null;
@@ -12,20 +13,15 @@ async function checkAdmin(req) {
   try {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, JWT_SECRET);
-
-    const { data: settings } = await supabase
-      .from('settings')
-      .select('value')
-      .eq('key', 'admin_vk_ids')
-      .single();
-
-    if (!settings?.value?.includes(decoded.vk_id)) {
-      return null;
+    
+    // Проверяем что токен валидный и содержит role: admin
+    if (decoded.role === 'admin') {
+      return decoded;
     }
-
-    return decoded;
+    
+    return null;
   } catch (error) {
-    console.error('CheckAdmin error:', error.message);
+    console.error('Token verification error:', error.message);
     return null;
   }
 }
@@ -40,7 +36,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const admin = await checkAdmin(req);
+    const admin = checkAdmin(req);
     if (!admin) {
       return res.status(401).json({ error: 'Не авторизован' });
     }
@@ -54,18 +50,18 @@ export default async function handler(req, res) {
     let query = supabase
       .from('events')
       .select('*')
-      .order('event_day', { ascending: true });  // ← Исправлено!
+      .order('event_day', { ascending: true });
 
     if (search) {
       query = query.or(`user_name.ilike.%${search}%,recipient_name.ilike.%${search}%`);
     }
 
     if (dateFrom) {
-      query = query.gte('event_day', dateFrom);  // ← Исправлено!
+      query = query.gte('event_day', dateFrom);
     }
 
     if (dateTo) {
-      query = query.lte('event_day', dateTo);  // ← Исправлено!
+      query = query.lte('event_day', dateTo);
     }
 
     if (status) {
