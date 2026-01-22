@@ -1,13 +1,16 @@
-import { supabase } from '../lib/supabase.js';
+import { supabase } from '../lib/supabase.js'; // Обратите внимание: одна точка "../"
+import { extractVkUserId } from '../lib/vk.js'; // Одна точка "../"
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, vk-params');
-
+  // Настройка CORS
   if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-VK-Params');
     return res.status(200).end();
   }
+
+  res.setHeader('Access-Control-Allow-Origin', '*');
 
   try {
     // GET - Получить события пользователя
