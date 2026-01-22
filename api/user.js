@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase.js';
+import { extractVkUserId } from '../lib/vk.js';
 
 export default async function handler(req, res) {
   // CORS заголовки
