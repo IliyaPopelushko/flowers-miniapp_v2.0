@@ -2,11 +2,10 @@
 // /api/events/[id] — Операции с конкретным событием
 // ============================================
 
-import { supabase } from '../lib/supabase.js'; // Проверьте количество точек! 
-// Если файл лежит в api/events/[id].js, то до lib нужно подняться на 2 уровня: ../../
-import { extractVkUserId } from '../lib/vk.js'; 
+import { supabase } from '../../lib/supabase.js';
+import { extractVkUserId } from '../../lib/vk.js';
 
-export default async function handler(req, res) { // Используем export default вместо module.exports
+export default async function handler(req, res) {
   // CORS preflight
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', '*');
