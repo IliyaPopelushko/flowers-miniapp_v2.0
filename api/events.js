@@ -1,26 +1,24 @@
 import { supabase } from '../lib/supabase.js';
-import { extractVkUserId } from '../lib/vk.js';
 
 export default async function handler(req, res) {
-  // 1. Логируем начало запроса (появится в логах Vercel Function)
   console.log(`Incoming ${req.method} request to /api/events`);
 
-  // Настройка CORS
+  // ✅ CORS для всех запросов (включая OPTIONS)
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-VK-Params, vk-params');
+
   if (req.method === 'OPTIONS') {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-VK-Params');
     return res.status(200).end();
   }
 
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Content-Type', 'application/json'); // Явно указываем JSON
+  res.setHeader('Content-Type', 'application/json');
 
   try {
     // GET - Получить события
     if (req.method === 'GET') {
       const { vk_user_id } = req.query;
-      console.log('GET Params:', req.query); // Лог
+      console.log('GET Params:', req.query);
 
       if (!vk_user_id) {
         return res.status(400).json({ error: 'vk_user_id required' });
@@ -34,7 +32,7 @@ export default async function handler(req, res) {
         .order('event_day', { ascending: true });
 
       if (error) {
-        console.error('Supabase GET Error:', error); // Лог ошибки БД
+        console.error('Supabase GET Error:', error);
         throw error;
       }
 
@@ -45,9 +43,8 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
       let body = req.body;
 
-      console.log('Raw Body:', body); // Лог тела запроса
+      console.log('Raw Body:', body);
 
-      // Защита: если body пришел строкой (бывает при проблемах с заголовками)
       if (typeof body === 'string') {
         try {
           body = JSON.parse(body);
@@ -61,16 +58,13 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Body is empty' });
       }
 
-      // Важный момент: убедимся, что отправляем массив, если insert ждет массив
-      // Или объект, если insert ждет объект (v2 Supabase умеет и так, и так)
       const { data, error } = await supabase
         .from('events')
-        .insert([body]) // Оборачиваем в массив, как у вас было
+        .insert([body])
         .select();
 
       if (error) {
-        console.error('Supabase INSERT Error:', error); // Важный лог!
-        // Часто падает из-за RLS или несоответствия типов полей
+        console.error('Supabase INSERT Error:', error);
         return res.status(500).json({ error: 'Database error', details: error.message });
       }
 
