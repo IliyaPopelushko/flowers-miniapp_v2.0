@@ -1,7 +1,3 @@
-// ============================================
-// API для работы с бэкендом
-// ============================================
-
 import vkBridge from '@vkontakte/vk-bridge'
 
 // URL вашего API на Vercel
@@ -35,6 +31,11 @@ export function isInVk() {
   return isVkEnvironment
 }
 
+// ✅ Получаем vk_user_id
+export function getVkUserId() {
+  return launchParams?.vk_user_id ? parseInt(launchParams.vk_user_id) : null
+}
+
 // Получаем данные пользователя VK
 export async function getVkUser() {
   try {
@@ -62,8 +63,13 @@ async function apiRequest(endpoint, method = 'GET', body = null) {
     headers,
   }
 
+  // ✅ Для POST/PUT запросов автоматически добавляем vk_user_id
   if (body && method !== 'GET') {
-    options.body = JSON.stringify(body)
+    const enrichedBody = {
+      ...body,
+      vk_user_id: body.vk_user_id || getVkUserId()
+    }
+    options.body = JSON.stringify(enrichedBody)
   }
 
   // Добавляем параметры VK в URL для GET запросов
@@ -75,6 +81,10 @@ async function apiRequest(endpoint, method = 'GET', body = null) {
 
   try {
     console.log(`API Request: ${method} ${url}`)
+    if (options.body) {
+      console.log('Request body:', options.body)
+    }
+    
     const response = await fetch(url, options)
     
     const data = await response.json()
@@ -91,10 +101,6 @@ async function apiRequest(endpoint, method = 'GET', body = null) {
     throw new Error(error.message || 'Ошибка сети')
   }
 }
-
-// ============================================
-// API методы
-// ============================================
 
 export async function getUser() {
   return apiRequest('/user', 'GET')
