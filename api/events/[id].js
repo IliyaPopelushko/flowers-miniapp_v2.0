@@ -2,12 +2,12 @@ import { supabase } from '../../lib/supabase.js';
 import { extractVkUserId } from '../../lib/vk.js';
 
 export default async function handler(req, res) {
-  // ✅ CORS для всех запросов
+  // ✅ CORS заголовки СРАЗУ для ВСЕХ запросов (включая OPTIONS)
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-VK-Params, vk-params');
 
-  // CORS preflight
+  // Preflight запрос — сразу отвечаем 200
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
@@ -25,18 +25,18 @@ export default async function handler(req, res) {
     if (req.headers['x-vk-params']) {
       try {
         vkParams = JSON.parse(req.headers['x-vk-params']);
-      } catch (e) {}
+      } catch (e) {
+        console.warn('Failed to parse X-VK-Params:', e);
+      }
     }
     
     if (Object.keys(vkParams).length === 0 && req.query) {
       vkParams = req.query;
     }
 
-    let vkUserId = extractVkUserId(vkParams);
+    const vkUserId = extractVkUserId(vkParams);
     
-    if (!vkUserId) {
-      vkUserId = 518565944;
-    }
+    console.log(`[events/${id}] Method: ${req.method}, VK User: ${vkUserId}`);
 
     // Проверяем существование события
     const { data: existingEvent, error: fetchError } = await supabase
@@ -46,6 +46,7 @@ export default async function handler(req, res) {
       .single();
 
     if (fetchError || !existingEvent) {
+      console.log(`Event ${id} not found`);
       return res.status(404).json({ error: 'Event not found' });
     }
 
@@ -85,8 +86,12 @@ export default async function handler(req, res) {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Update error:', error);
+        throw error;
+      }
 
+      console.log(`Event ${id} updated`);
       return res.status(200).json({ event });
     }
 
@@ -97,8 +102,12 @@ export default async function handler(req, res) {
         .delete()
         .eq('id', id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Delete error:', error);
+        throw error;
+      }
 
+      console.log(`Event ${id} deleted`);
       return res.status(200).json({ success: true });
     }
 
