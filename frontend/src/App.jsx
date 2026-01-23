@@ -113,9 +113,9 @@ function App() {
         // 4. Загружаем события
         console.log('4. Loading events...')
         try {
-          const result = await getEvents()
-          console.log('✅ Events loaded:', result.events?.length || 0)
-          setEvents(result.events || [])
+          const eventsData = await getEvents()
+          console.log('✅ Events loaded:', eventsData?.length || 0)
+          setEvents(Array.isArray(eventsData) ? eventsData : [])
         } catch (e) {
           console.warn('⚠️ Events error:', e.message)
           setEvents([])
@@ -157,8 +157,8 @@ function App() {
   // Загрузка событий
   const loadEvents = async () => {
     try {
-      const result = await getEvents()
-      setEvents(result.events || [])
+      const eventsData = await getEvents()
+      setEvents(Array.isArray(eventsData) ? eventsData : [])
     } catch (e) {
       console.error('Load events error:', e)
     }
