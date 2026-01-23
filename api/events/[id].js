@@ -2,24 +2,16 @@ import { supabase } from '../../lib/supabase.js';
 import { extractVkUserId } from '../../lib/vk.js';
 
 export default async function handler(req, res) {
-  // Логирование для отладки
-  console.log(`Incoming ${req.method} request to events/[id]`);
-
-  // ==========================================
-  // 1. НАСТРОЙКА CORS (Обязательно для всех методов)
-  // ==========================================
+  // ✅ CORS заголовки СРАЗУ для ВСЕХ запросов (включая OPTIONS)
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-VK-Params, vk-params');
 
-  // Обработка Preflight запроса (OPTIONS)
+  // Preflight запрос — сразу отвечаем 200
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
-  // ==========================================
-  // 2. ОСНОВНАЯ ЛОГИКА
-  // ==========================================
   try {
     const { id } = req.query;
     
@@ -27,39 +19,26 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Event ID is required' });
     }
 
-    // --- Проверка авторизации (VK Params) ---
+    // Получаем параметры VK
     let vkParams = {};
     
-    // Пытаемся достать параметры из заголовка (приходят от frontend)
     if (req.headers['x-vk-params']) {
       try {
         vkParams = JSON.parse(req.headers['x-vk-params']);
       } catch (e) {
-        console.warn('Failed to parse X-VK-Params', e);
+        console.warn('Failed to parse X-VK-Params:', e);
       }
     }
     
-    // Если в заголовках нет, пробуем query (обычно там их нет для PUT/DELETE, но на всякий случай)
     if (Object.keys(vkParams).length === 0 && req.query) {
-      // Фильтруем query, чтобы оставить только vk_ параметры
-      Object.keys(req.query).forEach(key => {
-        if (key.startsWith('vk_')) {
-          vkParams[key] = req.query[key];
-        }
-      });
+      vkParams = req.query;
     }
 
-    let vkUserId = extractVkUserId(vkParams);
+    const vkUserId = extractVkUserId(vkParams);
     
-    // TODO: В продакшене убрать хардкод, если extractVkUserId вернет null
-    // Сейчас для тестов, если не передалось, оставляем твой ID или null
-    if (!vkUserId && process.env.NODE_ENV === 'development') {
-       // vkUserId = ...; 
-    }
+    console.log(`[events/${id}] Method: ${req.method}, VK User: ${vkUserId}`);
 
-    console.log(`Action on event ${id} by user ${vkUserId}`);
-
-    // --- Проверка существования события ---
+    // Проверяем существование события
     const { data: existingEvent, error: fetchError } = await supabase
       .from('events')
       .select('*')
@@ -67,23 +46,17 @@ export default async function handler(req, res) {
       .single();
 
     if (fetchError || !existingEvent) {
-      console.error('Event not found or error:', fetchError);
+      console.log(`Event ${id} not found`);
       return res.status(404).json({ error: 'Event not found' });
     }
 
-    // --- GET: Получить событие ---
+    // GET — получить событие
     if (req.method === 'GET') {
       return res.status(200).json({ event: existingEvent });
     }
 
-    // --- PUT: Обновить событие ---
+    // PUT — обновить событие
     if (req.method === 'PUT') {
-      // Важно: парсим body, если он пришел строкой (бывает в Vercel)
-      let body = req.body;
-      if (typeof body === 'string') {
-        try { body = JSON.parse(body); } catch(e) {}
-      }
-
       const {
         event_type,
         custom_event_name,
@@ -93,7 +66,7 @@ export default async function handler(req, res) {
         recipient_name,
         comment,
         notifications_enabled
-      } = body;
+      } = req.body;
 
       const updateData = { updated_at: new Date().toISOString() };
       
@@ -114,14 +87,15 @@ export default async function handler(req, res) {
         .single();
 
       if (error) {
-        console.error('Update Error:', error);
+        console.error('Update error:', error);
         throw error;
       }
 
+      console.log(`Event ${id} updated`);
       return res.status(200).json({ event });
     }
 
-    // --- DELETE: Удалить событие ---
+    // DELETE — удалить событие
     if (req.method === 'DELETE') {
       const { error } = await supabase
         .from('events')
@@ -129,20 +103,21 @@ export default async function handler(req, res) {
         .eq('id', id);
 
       if (error) {
-        console.error('Delete Error:', error);
+        console.error('Delete error:', error);
         throw error;
       }
 
+      console.log(`Event ${id} deleted`);
       return res.status(200).json({ success: true });
     }
 
     return res.status(405).json({ error: 'Method not allowed' });
 
   } catch (error) {
-    console.error('Event [id] API critical error:', error);
+    console.error('Event [id] API error:', error);
     return res.status(500).json({ 
       error: 'Internal server error',
       details: error.message 
     });
   }
-};
+}
