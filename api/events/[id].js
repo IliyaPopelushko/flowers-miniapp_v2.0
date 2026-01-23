@@ -1,20 +1,16 @@
-// ============================================
-// /api/events/[id] — Операции с конкретным событием
-// ============================================
-
 import { supabase } from '../../lib/supabase.js';
 import { extractVkUserId } from '../../lib/vk.js';
 
 export default async function handler(req, res) {
+  // ✅ CORS для всех запросов
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-VK-Params, vk-params');
+
   // CORS preflight
   if (req.method === 'OPTIONS') {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-VK-Params');
     return res.status(200).end();
   }
-
-  res.setHeader('Access-Control-Allow-Origin', '*');
 
   try {
     const { id } = req.query;
@@ -115,4 +111,4 @@ export default async function handler(req, res) {
       details: error.message 
     });
   }
-};
+}
