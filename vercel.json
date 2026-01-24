@@ -38,6 +38,10 @@
       "dest": "/api/admin-settings.js"
     },
     {
+      "src": "/api/events/([^/]+)",
+      "dest": "/api/events/[id].js?id=$1"
+    },
+    {
       "src": "/api/(.*)",
       "dest": "/api/$1.js"
     },
