@@ -3,8 +3,8 @@
 // Отправка напоминаний о событиях
 // ============================================
 
-import { supabase } from '../lib/supabase.js';
-const { sendMessage } = require('../../lib/vk');
+import { supabase } from '../../lib/supabase.js';
+import { sendMessage } from '../../lib/vk.js';
 
 const CRON_SECRET = process.env.CRON_SECRET || 'your-secret-key';
 
@@ -41,7 +41,7 @@ const BOUQUETS = {
   }
 };
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   console.log('🔔 Starting reminders job...');
 
   if (req.method !== 'POST') {
@@ -155,7 +155,7 @@ module.exports = async function handler(req, res) {
       details: error.message
     });
   }
-};
+}
 
 function addDays(date, days) {
   const result = new Date(date);
