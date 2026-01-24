@@ -3,7 +3,7 @@
 // ============================================
 
 import { supabase } from '../lib/supabase.js';
-const { sendMessage, isAdmin } = require('../lib/vk');
+import { sendMessage, isAdmin } from '../lib/vk.js';
 
 const VK_GROUP_ID = process.env.VK_GROUP_ID || '136756716';
 const VK_CONFIRMATION_CODE = process.env.VK_CONFIRMATION_CODE;
@@ -19,7 +19,7 @@ const BOUQUETS = {
 // Состояния диалогов пользователей
 const userStates = {};
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -55,7 +55,7 @@ module.exports = async function handler(req, res) {
     console.error('VK Callback error:', error);
     return res.status(200).send('ok');
   }
-};
+}
 
 async function handleNewMessage(message) {
   const userId = message.from_id;
@@ -283,7 +283,7 @@ async function handleDialogState(userId, text, message) {
     case 'enter_phone':
       state.preorder.recipient_phone = text;
       state.step = 'enter_time';
-      await sendMessage(userId, '🕐 Укажите желаемое время доставки (например: 14:00-16:00):');
+      await sendMessage(userId, '🕐 Укажите желаемое время доставки (например: 14-16):');
       break;
 
     case 'enter_time':
