@@ -90,6 +90,12 @@ const eventTypeLabels = {
   other: 'Другое'
 };
 
+// ✅ Названия месяцев для отображения
+const monthNames = [
+  '', 'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+  'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'
+];
+
 function Events() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -121,10 +127,10 @@ function Events() {
     loadEvents();
   };
 
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '—';
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+  // ✅ Исправленная функция форматирования даты
+  const formatEventDate = (day, month) => {
+    if (!day || !month) return '—';
+    return `${day} ${monthNames[month] || month}`;
   };
 
   return (
@@ -200,7 +206,8 @@ function Events() {
                   {eventTypeLabels[event.event_type] || event.event_type}
                   {event.custom_event_name && ` (${event.custom_event_name})`}
                 </td>
-                <td style={styles.td}>{formatDate(event.event_day)}</td>
+                {/* ✅ Исправленный вызов с двумя параметрами */}
+                <td style={styles.td}>{formatEventDate(event.event_day, event.event_month)}</td>
                 <td style={styles.td}>{event.recipient_name}</td>
                 <td style={styles.td}>
                   <span style={{
