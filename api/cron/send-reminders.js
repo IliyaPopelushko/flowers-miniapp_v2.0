@@ -94,6 +94,13 @@ export default async function handler(req, res) {
 
     console.log(`📋 Found ${events?.length || 0} events to check`);
 
+    // Логируем каждое событие для отладки
+for (const event of events || []) {
+  console.log(`📌 Event ${event.id}: day=${event.event_day}, month=${event.event_month}, status=${event.status}, notifications=${event.notifications_enabled}, messages_allowed=${event.users?.messages_allowed}`);
+}
+
+console.log(`📅 Looking for dates: 7d=${dates.in7days.day}.${dates.in7days.month}, 3d=${dates.in3days.day}.${dates.in3days.month}, 1d=${dates.in1day.day}.${dates.in1day.month}`);
+
     let sent = { day7: 0, day3: 0, day1: 0 };
 
     for (const event of events || []) {
