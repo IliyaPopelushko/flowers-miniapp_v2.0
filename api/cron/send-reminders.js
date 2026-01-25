@@ -77,22 +77,46 @@ export default async function handler(req, res) {
       .select('*')
       .single();
 
+        // Получаем события БЕЗ join для отладки
     const { data: events, error } = await supabase
       .from('events')
-      .select(`
-        *,
-        users (
-          first_name,
-          last_name,
-          messages_allowed
-        )
-      `)
+      .select('*')
       .eq('notifications_enabled', true)
       .in('status', ['active', 'reminded_7d', 'reminded_3d']);
 
     if (error) throw error;
 
     console.log(`📋 Found ${events?.length || 0} events to check`);
+    console.log(`📅 Looking for: 7d=${dates.in7days.day}.${dates.in7days.month}, 3d=${dates.in3days.day}.${dates.in3days.month}, 1d=${dates.in1day.day}.${dates.in1day.month}`);
+    
+    // Логируем все события
+    for (const ev of events || []) {
+      console.log(`📌 Event: day=${ev.event_day}, month=${ev.event_month}, status=${ev.status}, vk_user_id=${ev.vk_user_id}`);
+    }
+
+    let sent = { day7: 0, day3: 0, day1: 0 };
+
+    for (const event of events || []) {
+      // Получаем пользователя отдельно
+      const { data: user } = await supabase
+        .from('users')
+        .select('first_name, last_name, messages_allowed')
+        .eq('vk_user_id', event.vk_user_id)
+        .single();
+      
+      console.log(`👤 User for event ${event.id}: ${user ? `found, messages_allowed=${user.messages_allowed}` : 'NOT FOUND'}`);
+      
+      if (!user?.messages_allowed) {
+        console.log(`⚠️ Skipping event ${event.id} - no user or messages not allowed`);
+        continue;
+      }
+      
+      // Добавляем данные пользователя к событию
+      event.users = user;
+
+      const eventDate = { day: event.event_day, month: event.event_month };
+      
+      console.log(`🔍 Checking event: ${eventDate.day}.${eventDate.month} vs 7d: ${dates.in7days.day}.${dates.in7days.month}`);
 
     // Логируем каждое событие для отладки
 for (const event of events || []) {
