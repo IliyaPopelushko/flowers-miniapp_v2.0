@@ -19,7 +19,7 @@ const EVENT_TYPE_NAMES = {
   other: 'событие'
 };
 
-// Захардкоженные букеты (потом заменим на товары из ВК)
+// Захардкоженные букеты
 const BOUQUETS = {
   economy: {
     id: 'economy',
@@ -64,7 +64,7 @@ export default async function handler(req, res) {
       month: localTime.getUTCMonth() + 1
     };
 
-    console.log(`📅 Today: ${today.day}.${today.month}`);
+    console.log(`📅 Today (Magnitogorsk): ${today.day}.${today.month}`);
 
     const dates = {
       in7days: addDays(localTime, 7),
@@ -72,12 +72,14 @@ export default async function handler(req, res) {
       in1day: addDays(localTime, 1)
     };
 
+    console.log(`📅 Looking for: 7d=${dates.in7days.day}.${dates.in7days.month}, 3d=${dates.in3days.day}.${dates.in3days.month}, 1d=${dates.in1day.day}.${dates.in1day.month}`);
+
     const { data: settings } = await supabase
       .from('settings')
       .select('*')
       .single();
 
-        // Получаем события БЕЗ join для отладки
+    // Получаем события БЕЗ join для надёжности
     const { data: events, error } = await supabase
       .from('events')
       .select('*')
@@ -87,11 +89,10 @@ export default async function handler(req, res) {
     if (error) throw error;
 
     console.log(`📋 Found ${events?.length || 0} events to check`);
-    console.log(`📅 Looking for: 7d=${dates.in7days.day}.${dates.in7days.month}, 3d=${dates.in3days.day}.${dates.in3days.month}, 1d=${dates.in1day.day}.${dates.in1day.month}`);
-    
+
     // Логируем все события
     for (const ev of events || []) {
-      console.log(`📌 Event: day=${ev.event_day}, month=${ev.event_month}, status=${ev.status}, vk_user_id=${ev.vk_user_id}`);
+      console.log(`📌 Event: id=${ev.id}, day=${ev.event_day}, month=${ev.event_month}, status=${ev.status}, vk_user_id=${ev.vk_user_id}`);
     }
 
     let sent = { day7: 0, day3: 0, day1: 0 };
@@ -104,7 +105,7 @@ export default async function handler(req, res) {
         .eq('vk_user_id', event.vk_user_id)
         .single();
       
-      console.log(`👤 User for event ${event.id}: ${user ? `found, messages_allowed=${user.messages_allowed}` : 'NOT FOUND'}`);
+      console.log(`👤 User for vk_id=${event.vk_user_id}: ${user ? `found, messages_allowed=${user.messages_allowed}` : 'NOT FOUND'}`);
       
       if (!user?.messages_allowed) {
         console.log(`⚠️ Skipping event ${event.id} - no user or messages not allowed`);
@@ -116,24 +117,7 @@ export default async function handler(req, res) {
 
       const eventDate = { day: event.event_day, month: event.event_month };
       
-      console.log(`🔍 Checking event: ${eventDate.day}.${eventDate.month} vs 7d: ${dates.in7days.day}.${dates.in7days.month}`);
-
-    // Логируем каждое событие для отладки
-for (const event of events || []) {
-  console.log(`📌 Event ${event.id}: day=${event.event_day}, month=${event.event_month}, status=${event.status}, notifications=${event.notifications_enabled}, messages_allowed=${event.users?.messages_allowed}`);
-}
-
-console.log(`📅 Looking for dates: 7d=${dates.in7days.day}.${dates.in7days.month}, 3d=${dates.in3days.day}.${dates.in3days.month}, 1d=${dates.in1day.day}.${dates.in1day.month}`);
-
-    let sent = { day7: 0, day3: 0, day1: 0 };
-
-    for (const event of events || []) {
-      if (!event.users?.messages_allowed) {
-        console.log(`⚠️ Messages not allowed for user ${event.vk_user_id}`);
-        continue;
-      }
-
-      const eventDate = { day: event.event_day, month: event.event_month };
+      console.log(`🔍 Checking: event date ${eventDate.day}.${eventDate.month}`);
 
       // Напоминание за 7 дней
       if (
@@ -141,6 +125,7 @@ console.log(`📅 Looking for dates: 7d=${dates.in7days.day}.${dates.in7days.mon
         eventDate.day === dates.in7days.day &&
         eventDate.month === dates.in7days.month
       ) {
+        console.log(`✅ Match 7 days! Sending reminder...`);
         await sendReminder7Days(event, settings);
         await updateEventStatus(event.id, 'reminded_7d');
         sent.day7++;
@@ -152,6 +137,7 @@ console.log(`📅 Looking for dates: 7d=${dates.in7days.day}.${dates.in7days.mon
         eventDate.day === dates.in3days.day &&
         eventDate.month === dates.in3days.month
       ) {
+        console.log(`✅ Match 3 days! Sending reminder...`);
         await sendReminder3Days(event, settings);
         await updateEventStatus(event.id, 'reminded_3d');
         sent.day3++;
@@ -163,9 +149,12 @@ console.log(`📅 Looking for dates: 7d=${dates.in7days.day}.${dates.in7days.mon
         eventDate.day === dates.in1day.day &&
         eventDate.month === dates.in1day.month
       ) {
+        console.log(`✅ Match 1 day! Sending reminder...`);
         await sendReminder1Day(event, settings);
         await updateEventStatus(event.id, 'reminded_1d');
         sent.day1++;
+      } else {
+        console.log(`❌ No match for event ${event.id}`);
       }
     }
 
@@ -292,7 +281,7 @@ ${BOUQUETS.premium.description}
   };
 
   const result = await sendMessage(event.vk_user_id, message, keyboard);
-  console.log(`📤 Sent 7-day reminder to ${event.vk_user_id}:`, result.success);
+  console.log(`📤 Sent 7-day reminder to ${event.vk_user_id}:`, result.success ? 'OK' : result.error);
 }
 
 // Напоминание за 3 дня
@@ -360,7 +349,7 @@ async function sendReminder3Days(event, settings) {
   };
 
   const result = await sendMessage(event.vk_user_id, message, keyboard);
-  console.log(`📤 Sent 3-day reminder to ${event.vk_user_id}:`, result.success);
+  console.log(`📤 Sent 3-day reminder to ${event.vk_user_id}:`, result.success ? 'OK' : result.error);
 }
 
 // Напоминание за 1 день
@@ -403,7 +392,7 @@ async function sendReminder1Day(event, settings) {
   }
 
   const result = await sendMessage(event.vk_user_id, message);
-  console.log(`📤 Sent 1-day reminder to ${event.vk_user_id}:`, result.success);
+  console.log(`📤 Sent 1-day reminder to ${event.vk_user_id}:`, result.success ? 'OK' : result.error);
 }
 
 async function handlePastEvents(today) {
