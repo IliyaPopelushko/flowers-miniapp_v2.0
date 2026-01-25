@@ -1,124 +1,120 @@
-import jwt from 'jsonwebtoken';
+// ============================================
+// /api/admin-settings — Настройки магазина и букетов
+// ============================================
+
 import { supabase } from '../lib/supabase.js';
 
-const JWT_SECRET = process.env.JWT_SECRET;
-const VK_SERVICE_TOKEN = process.env.VK_SERVICE_TOKEN;
-const VK_GROUP_ID = process.env.VK_GROUP_ID;
-
-function checkAdmin(req) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith('Bearer ')) {
-    return null;
-  }
-
-  try {
-    const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, JWT_SECRET);
-    
-    if (decoded.role === 'admin') {
-      return decoded;
-    }
-    
-    return null;
-  } catch (error) {
-    console.error('Token verification error:', error.message);
-    return null;
-  }
-}
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
 export default async function handler(req, res) {
+  // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, PUT, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
-  const admin = checkAdmin(req);
-  if (!admin) {
-    return res.status(401).json({ error: 'Не авторизован' });
+  // Проверка авторизации
+  const authHeader = req.headers.authorization;
+  if (!authHeader || authHeader !== `Bearer ${ADMIN_PASSWORD}`) {
+    return res.status(401).json({ error: 'Unauthorized' });
   }
 
+  if (req.method === 'GET') {
+    return getSettings(req, res);
+  }
+
+  if (req.method === 'PUT') {
+    return updateSettings(req, res);
+  }
+
+  return res.status(405).json({ error: 'Method not allowed' });
+}
+
+async function getSettings(req, res) {
   try {
-    if (req.method === 'GET') {
-      const { action } = req.query;
+    const { data, error } = await supabase
+      .from('settings')
+      .select('*')
+      .single();
 
-      // Получаем товары из VK
-      if (action === 'vk_products') {
-        const url = `https://api.vk.com/method/market.get?owner_id=-${VK_GROUP_ID}&count=100&access_token=${VK_SERVICE_TOKEN}&v=5.131`;
-
-        const response = await fetch(url);
-        const data = await response.json();
-
-        if (data.error) {
-          console.error('VK market error:', data.error);
-          return res.status(500).json({ error: 'Ошибка получения товаров VK' });
-        }
-
-        const products = data.response?.items?.map(item => ({
-          id: item.id,
-          title: item.title,
-          price: item.price?.amount ? Math.round(item.price.amount / 100) : 0,
-          photo: item.thumb_photo,
-          description: item.description
-        })) || [];
-
-        return res.status(200).json({ products });
-      }
-
-      // Получаем настройки букетов
-      const { data: settings, error } = await supabase
-        .from('settings')
-        .select('key, value')
-        .in('key', ['bouquet_economy', 'bouquet_medium', 'bouquet_premium']);
-
-      if (error) {
-        console.error('Settings fetch error:', error);
-        return res.status(500).json({ error: 'Ошибка загрузки настроек' });
-      }
-
-      const result = {};
-      settings.forEach(s => {
-        result[s.key] = s.value;
-      });
-
-      return res.status(200).json({ settings: result });
+    if (error && error.code !== 'PGRST116') {
+      throw error;
     }
 
-    if (req.method === 'POST') {
-      const { bouquet_economy, bouquet_medium, bouquet_premium } = req.body;
+    // Если настроек нет — возвращаем дефолтные
+    const settings = data || {
+      shop_name: 'Цветы в лесопарке',
+      shop_address: 'посёлок Лесопарк 30',
+      shop_phone: '+7 912 797 1348',
+      shop_hours: 'с 8:00 до 21:00',
+      bouquet_economy_vk_id: null,
+      bouquet_economy_name: null,
+      bouquet_economy_price: null,
+      bouquet_medium_vk_id: null,
+      bouquet_medium_name: null,
+      bouquet_medium_price: null,
+      bouquet_premium_vk_id: null,
+      bouquet_premium_name: null,
+      bouquet_premium_price: null
+    };
 
-      const updates = [];
-
-      if (bouquet_economy !== undefined) {
-        updates.push({ key: 'bouquet_economy', value: bouquet_economy });
-      }
-      if (bouquet_medium !== undefined) {
-        updates.push({ key: 'bouquet_medium', value: bouquet_medium });
-      }
-      if (bouquet_premium !== undefined) {
-        updates.push({ key: 'bouquet_premium', value: bouquet_premium });
-      }
-
-      for (const update of updates) {
-        const { error } = await supabase
-          .from('settings')
-          .upsert(update, { onConflict: 'key' });
-
-        if (error) {
-          console.error('Settings update error:', error);
-          return res.status(500).json({ error: 'Ошибка сохранения' });
-        }
-      }
-
-      return res.status(200).json({ success: true });
-    }
-
-    return res.status(405).json({ error: 'Method not allowed' });
+    return res.status(200).json({ success: true, settings });
 
   } catch (error) {
-    console.error('Settings error:', error);
-    return res.status(500).json({ error: 'Ошибка сервера' });
+    console.error('Error getting settings:', error);
+    return res.status(500).json({ error: error.message });
+  }
+}
+
+async function updateSettings(req, res) {
+  try {
+    const updates = req.body;
+
+    // Проверяем, есть ли уже запись
+    const { data: existing } = await supabase
+      .from('settings')
+      .select('id')
+      .single();
+
+    let result;
+
+    if (existing) {
+      // Обновляем существующую
+      result = await supabase
+        .from('settings')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existing.id)
+        .select()
+        .single();
+    } else {
+      // Создаём новую
+      result = await supabase
+        .from('settings')
+        .insert({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+    }
+
+    if (result.error) throw result.error;
+
+    console.log('✅ Settings updated');
+
+    return res.status(200).json({ 
+      success: true, 
+      settings: result.data 
+    });
+
+  } catch (error) {
+    console.error('Error updating settings:', error);
+    return res.status(500).json({ error: error.message });
   }
 }
