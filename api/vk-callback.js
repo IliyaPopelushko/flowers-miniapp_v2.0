@@ -88,6 +88,18 @@ async function handleNewMessage(message) {
     return;
   }
 
+  // Новая команда - показать события для заказа
+  if (text === 'заказ' || text === 'заказать' || text === 'мои события' || text === 'события') {
+    await showEventsForOrder(userId);
+    return;
+  }
+
+  // Выбор события по номеру (например: "1", "2", "3")
+  if (/^[1-9]$/.test(text)) {
+    await handleEventNumberSelection(userId, parseInt(text));
+    return;
+  }
+
   await sendDefaultMessage(userId);
 }
 
@@ -460,6 +472,145 @@ async function notifyAdmins(preorder, state) {
   }
 }
 
+// Показать события пользователя для заказа
+async function showEventsForOrder(userId) {
+  const { data: events } = await supabase
+    .from('events')
+    .select('*')
+    .eq('vk_user_id', userId)
+    .in('status', ['active', 'reminded_7d', 'reminded_3d', 'reminded_1d'])
+    .order('event_month', { ascending: true })
+    .order('event_day', { ascending: true })
+    .limit(10);
+
+  if (!events || events.length === 0) {
+    await sendMessage(userId, 'У тебя пока нет активных событий. Добавь их в мини-приложении! 🌸');
+    return;
+  }
+
+  // Сохраняем список событий для выбора по номеру
+  userStates[userId] = {
+    step: 'select_event_by_number',
+    events: events
+  };
+
+  let message = '📋 Твои ближайшие события:\n\n';
+  
+  events.forEach((event, index) => {
+    const eventTypeName = event.event_type === 'other'
+      ? event.custom_event_name
+      : EVENT_TYPE_NAMES[event.event_type] || event.event_type;
+    
+    const dateStr = `${event.event_day}.${String(event.event_month).padStart(2, '0')}`;
+    message += `${index + 1}. ${eventTypeName} — ${event.recipient_name} (${dateStr})\n`;
+  });
+
+  message += '\n👆 Напиши номер события (1, 2, 3...) чтобы выбрать букет';
+
+  await sendMessage(userId, message);
+}
+
+// Обработка выбора события по номеру
+async function handleEventNumberSelection(userId, number) {
+  const state = userStates[userId];
+  
+  if (!state || state.step !== 'select_event_by_number' || !state.events) {
+    // Если нет сохранённого списка — показываем события
+    await showEventsForOrder(userId);
+    return;
+  }
+
+  const eventIndex = number - 1;
+  if (eventIndex < 0 || eventIndex >= state.events.length) {
+    await sendMessage(userId, `Неверный номер. Введи число от 1 до ${state.events.length}`);
+    return;
+  }
+
+  const event = state.events[eventIndex];
+  
+  // Показываем выбор букета для этого события
+  await showBouquetSelection(userId, event);
+}
+
+// Показать выбор букета для события
+async function showBouquetSelection(userId, event) {
+  const eventTypeName = event.event_type === 'other'
+    ? event.custom_event_name
+    : EVENT_TYPE_NAMES[event.event_type] || event.event_type;
+
+  const dateStr = `${event.event_day}.${String(event.event_month).padStart(2, '0')}`;
+
+  const message = `Выбери букет для "${eventTypeName}" — ${event.recipient_name} (${dateStr}):
+
+💐 ${BOUQUETS.economy.name} — ${BOUQUETS.economy.price}₽
+💐 ${BOUQUETS.medium.name} — ${BOUQUETS.medium.price}₽
+💐 ${BOUQUETS.premium.name} — ${BOUQUETS.premium.price}₽`;
+
+  const keyboard = {
+    inline: true,
+    buttons: [
+      [
+        {
+          action: {
+            type: 'text',
+            label: `${BOUQUETS.economy.name} — ${BOUQUETS.economy.price}₽`,
+            payload: JSON.stringify({
+              action: 'select_bouquet',
+              bouquet_id: 'economy',
+              event_id: event.id
+            })
+          },
+          color: 'secondary'
+        }
+      ],
+      [
+        {
+          action: {
+            type: 'text',
+            label: `${BOUQUETS.medium.name} — ${BOUQUETS.medium.price}₽`,
+            payload: JSON.stringify({
+              action: 'select_bouquet',
+              bouquet_id: 'medium',
+              event_id: event.id
+            })
+          },
+          color: 'primary'
+        }
+      ],
+      [
+        {
+          action: {
+            type: 'text',
+            label: `${BOUQUETS.premium.name} — ${BOUQUETS.premium.price}₽`,
+            payload: JSON.stringify({
+              action: 'select_bouquet',
+              bouquet_id: 'premium',
+              event_id: event.id
+            })
+          },
+          color: 'positive'
+        }
+      ]
+    ]
+  };
+
+  // Очищаем состояние выбора события
+  delete userStates[userId];
+
+  await sendMessage(userId, message, keyboard);
+}
+
+// Названия типов событий (добавь в начало файла если нет)
+const EVENT_TYPE_NAMES = {
+  birthday: 'День рождения',
+  anniversary: 'Юбилей',
+  wedding_anniversary: 'Годовщина свадьбы',
+  valentines: 'День святого Валентина',
+  womens_day: '8 марта',
+  mothers_day: 'День матери',
+  other: 'Событие'
+};
+
 async function handleMessageAllow(userId) {
   console.log(`✅ User ${userId} allowed messages`);
   await supabase
@@ -495,7 +646,7 @@ async function sendHelpMessage(userId) {
 
 🌷 Добавить даты — открой мини-приложение в группе
 🔔 Я напомню за 7, 3 и 1 день
-💐 Можешь оформить предзаказ из напоминания
+💐 Напиши "заказ" чтобы выбрать букет
 
 📍 посёлок Лесопарк 30
 🕐 с 8:00 до 21:00
