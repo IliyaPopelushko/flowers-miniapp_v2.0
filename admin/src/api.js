@@ -52,3 +52,50 @@ export const api = {
   // Товары VK
   getVkProducts: () => request('/settings?action=vk_products')
 };
+// Получить товары из ВК
+export async function getProducts() {
+  const response = await fetch(`${API_URL}/admin-products`, {
+    headers: {
+      'Authorization': `Bearer ${getToken()}`
+    }
+  });
+  
+  if (!response.ok) {
+    throw new Error('Failed to fetch products');
+  }
+  
+  return response.json();
+}
+
+// Получить настройки
+export async function getSettings() {
+  const response = await fetch(`${API_URL}/admin-settings`, {
+    headers: {
+      'Authorization': `Bearer ${getToken()}`
+    }
+  });
+  
+  if (!response.ok) {
+    throw new Error('Failed to fetch settings');
+  }
+  
+  return response.json();
+}
+
+// Сохранить настройки
+export async function updateSettings(settings) {
+  const response = await fetch(`${API_URL}/admin-settings`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${getToken()}`
+    },
+    body: JSON.stringify(settings)
+  });
+  
+  if (!response.ok) {
+    throw new Error('Failed to update settings');
+  }
+  
+  return response.json();
+}
