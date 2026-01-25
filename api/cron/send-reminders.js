@@ -119,7 +119,7 @@ export default async function handler(req, res) {
       
       console.log(`🔍 Checking: event date ${eventDate.day}.${eventDate.month}`);
 
-      // Напоминание за 7 дней
+            // Напоминание за 7 дней
       if (
         event.status === 'active' &&
         eventDate.day === dates.in7days.day &&
@@ -131,9 +131,9 @@ export default async function handler(req, res) {
         sent.day7++;
       }
 
-      // Напоминание за 3 дня
+      // Напоминание за 3 дня (включая события, добавленные менее чем за 7 дней)
       else if (
-        event.status === 'reminded_7d' &&
+        (event.status === 'active' || event.status === 'reminded_7d') &&
         eventDate.day === dates.in3days.day &&
         eventDate.month === dates.in3days.month
       ) {
@@ -143,9 +143,9 @@ export default async function handler(req, res) {
         sent.day3++;
       }
 
-      // Напоминание за 1 день
+      // Напоминание за 1 день (включая события, добавленные менее чем за 3 дня)
       else if (
-        (event.status === 'reminded_3d' || event.status === 'reminded_7d') &&
+        (event.status === 'active' || event.status === 'reminded_7d' || event.status === 'reminded_3d') &&
         eventDate.day === dates.in1day.day &&
         eventDate.month === dates.in1day.month
       ) {
