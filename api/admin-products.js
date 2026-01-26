@@ -2,11 +2,25 @@
 // GET /api/admin-products — Получение товаров из ВК
 // ============================================
 
-import { supabase } from '../lib/supabase.js';
+import jwt from 'jsonwebtoken';
 
 const VK_API_TOKEN = process.env.VK_API_TOKEN;
 const VK_GROUP_ID = process.env.VK_GROUP_ID || '136756716';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+
+// Проверка JWT токена
+function verifyToken(authHeader) {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+  
+  try {
+    const token = authHeader.split(' ')[1];
+    return jwt.verify(token, JWT_SECRET);
+  } catch (error) {
+    return null;
+  }
+}
 
 export default async function handler(req, res) {
   // CORS
@@ -23,8 +37,8 @@ export default async function handler(req, res) {
   }
 
   // Проверка авторизации
-  const authHeader = req.headers.authorization;
-  if (!authHeader || authHeader !== `Bearer ${ADMIN_PASSWORD}`) {
+  const admin = verifyToken(req.headers.authorization);
+  if (!admin) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
@@ -58,7 +72,7 @@ export default async function handler(req, res) {
       description: item.description || '',
       price: item.price?.amount ? Math.floor(item.price.amount / 100) : 0,
       photo: item.thumb_photo || '',
-      availability: item.availability // 0 - доступен, 1 - удалён, 2 - недоступен
+      availability: item.availability
     })).filter(p => p.availability === 0); // Только доступные
 
     console.log(`📦 Loaded ${products.length} products from VK`);
