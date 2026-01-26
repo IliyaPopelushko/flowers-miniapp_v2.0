@@ -4,7 +4,8 @@
 
 import jwt from 'jsonwebtoken';
 
-const VK_API_TOKEN = process.env.VK_API_TOKEN;
+// Используем сервисный ключ для market.get
+const VK_SERVICE_TOKEN2 = process.env.VK_SERVICE_TOKEN2;
 const VK_GROUP_ID = process.env.VK_GROUP_ID || '229962076';
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
@@ -36,21 +37,32 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Проверка авторизации
+  // Проверка авторизации админа
   const admin = verifyToken(req.headers.authorization);
   if (!admin) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
+  // Проверка наличия сервисного ключа
+  if (!VK_SERVICE_TOKEN2) {
+    console.error('VK_SERVICE_TOKEN2 not configured');
+    return res.status(500).json({ 
+      error: 'VK_SERVICE_TOKEN2 не настроен',
+      details: 'Добавьте сервисный ключ VK в настройки Vercel'
+    });
+  }
+
   try {
-    // Получаем товары из ВК
+    // Получаем товары из ВК (используем сервисный ключ)
     const params = new URLSearchParams({
       owner_id: `-${VK_GROUP_ID}`,
       count: 100,
       extended: 1,
-      access_token: VK_API_TOKEN,
-      v: '5.131'
+      access_token: VK_SERVICE_TOKEN2,
+      v: '5.199'
     });
+
+    console.log(`📦 Fetching products for group ${VK_GROUP_ID}...`);
 
     const response = await fetch(
       `https://api.vk.com/method/market.get?${params}`
@@ -62,8 +74,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ 
         error: 'VK API error', 
         details: data.error.error_msg,
-        error_code: data.error.error_code,
-        full_error: data.error
+        error_code: data.error.error_code
       });
     }
 
