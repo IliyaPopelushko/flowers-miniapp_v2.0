@@ -5,7 +5,7 @@
 import jwt from 'jsonwebtoken';
 
 const VK_API_TOKEN = process.env.VK_API_TOKEN;
-const VK_GROUP_ID = process.env.VK_GROUP_ID || '136756716';
+const VK_GROUP_ID = process.env.VK_GROUP_ID || '229962076';
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
 // Проверка JWT токена
