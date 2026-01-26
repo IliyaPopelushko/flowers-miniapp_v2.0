@@ -1,4 +1,9 @@
-const API_BASE = '/api/admin';
+// ============================================
+// API клиент для админ-панели
+// ============================================
+
+// URL API на Vercel (замени на свой домен!)
+const API_URL = 'https://flowers-miniapp-v2-0.vercel.app/api';
 
 function getToken() {
   return localStorage.getItem('admin_token');
@@ -6,7 +11,8 @@ function getToken() {
 
 async function request(endpoint, options = {}) {
   const token = getToken();
-  const res = await fetch(`${API_BASE}${endpoint}`, {
+  
+  const res = await fetch(`${API_URL}${endpoint}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -23,79 +29,58 @@ async function request(endpoint, options = {}) {
   return res.json();
 }
 
+// ============================================
+// Объект api для совместимости с существующим кодом
+// ============================================
+
 export const api = {
   // События
   getEvents: (params = {}) => {
     const query = new URLSearchParams(params).toString();
-    return request(`/events?${query}`);
+    return request(`/admin-events?${query}`);
   },
   
   // Предзаказы
   getPreorders: (params = {}) => {
     const query = new URLSearchParams(params).toString();
-    return request(`/preorders?${query}`);
+    return request(`/admin-preorders?${query}`);
   },
   updatePreorderStatus: (id, status) => 
-    request(`/preorders`, {
+    request(`/admin-preorders`, {
       method: 'PATCH',
       body: JSON.stringify({ id, status })
     }),
   
   // Настройки
-  getSettings: () => request('/settings'),
+  getSettings: () => request('/admin-settings'),
   updateSettings: (data) => 
-    request('/settings', {
-      method: 'POST',
+    request('/admin-settings', {
+      method: 'PUT',
       body: JSON.stringify(data)
     }),
   
   // Товары VK
-  getVkProducts: () => request('/settings?action=vk_products')
+  getVkProducts: () => request('/admin-products')
 };
+
+// ============================================
+// Отдельные экспорты для новых компонентов
+// ============================================
+
 // Получить товары из ВК
 export async function getProducts() {
-  const response = await fetch(`${API_URL}/admin-products`, {
-    headers: {
-      'Authorization': `Bearer ${getToken()}`
-    }
-  });
-  
-  if (!response.ok) {
-    throw new Error('Failed to fetch products');
-  }
-  
-  return response.json();
+  return request('/admin-products');
 }
 
 // Получить настройки
 export async function getSettings() {
-  const response = await fetch(`${API_URL}/admin-settings`, {
-    headers: {
-      'Authorization': `Bearer ${getToken()}`
-    }
-  });
-  
-  if (!response.ok) {
-    throw new Error('Failed to fetch settings');
-  }
-  
-  return response.json();
+  return request('/admin-settings');
 }
 
 // Сохранить настройки
 export async function updateSettings(settings) {
-  const response = await fetch(`${API_URL}/admin-settings`, {
+  return request('/admin-settings', {
     method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${getToken()}`
-    },
     body: JSON.stringify(settings)
   });
-  
-  if (!response.ok) {
-    throw new Error('Failed to update settings');
-  }
-  
-  return response.json();
 }
