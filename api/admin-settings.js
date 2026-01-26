@@ -2,9 +2,24 @@
 // /api/admin-settings — Настройки магазина и букетов
 // ============================================
 
+import jwt from 'jsonwebtoken';
 import { supabase } from '../lib/supabase.js';
 
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+
+// Проверка JWT токена
+function verifyToken(authHeader) {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+  
+  try {
+    const token = authHeader.split(' ')[1];
+    return jwt.verify(token, JWT_SECRET);
+  } catch (error) {
+    return null;
+  }
+}
 
 export default async function handler(req, res) {
   // CORS
@@ -17,8 +32,8 @@ export default async function handler(req, res) {
   }
 
   // Проверка авторизации
-  const authHeader = req.headers.authorization;
-  if (!authHeader || authHeader !== `Bearer ${ADMIN_PASSWORD}`) {
+  const admin = verifyToken(req.headers.authorization);
+  if (!admin) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
