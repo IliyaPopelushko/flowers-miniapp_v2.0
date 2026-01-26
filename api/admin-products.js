@@ -58,10 +58,12 @@ export default async function handler(req, res) {
     const data = await response.json();
 
     if (data.error) {
-      console.error('VK API error:', data.error);
+      console.error('VK API error:', JSON.stringify(data.error));
       return res.status(500).json({ 
         error: 'VK API error', 
-        details: data.error.error_msg 
+        details: data.error.error_msg,
+        error_code: data.error.error_code,
+        full_error: data.error
       });
     }
 
