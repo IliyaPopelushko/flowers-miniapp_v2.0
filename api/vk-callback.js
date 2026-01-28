@@ -331,6 +331,16 @@ async function showBouquetSelection(userId, event) {
 💐 ${BOUQUETS.medium.name} — ${BOUQUETS.medium.price}₽
 💐 ${BOUQUETS.premium.name} — ${BOUQUETS.premium.price}₽`;
 
+  // Функция для обрезки названия (макс 40 символов с учётом цены)
+  function makeButtonLabel(name, price) {
+    const priceStr = ` — ${price}₽`;
+    const maxNameLength = 40 - priceStr.length;
+    const shortName = name.length > maxNameLength 
+      ? name.substring(0, maxNameLength - 1) + '…' 
+      : name;
+    return shortName + priceStr;
+  }
+
   const keyboard = {
     inline: true,
     buttons: [
@@ -338,7 +348,7 @@ async function showBouquetSelection(userId, event) {
         {
           action: {
             type: 'text',
-            label: `${BOUQUETS.economy.name} — ${BOUQUETS.economy.price}₽`,
+            label: makeButtonLabel(BOUQUETS.economy.name, BOUQUETS.economy.price),
             payload: JSON.stringify({
               action: 'select_bouquet',
               bouquet_id: 'economy',
@@ -352,7 +362,7 @@ async function showBouquetSelection(userId, event) {
         {
           action: {
             type: 'text',
-            label: `${BOUQUETS.medium.name} — ${BOUQUETS.medium.price}₽`,
+            label: makeButtonLabel(BOUQUETS.medium.name, BOUQUETS.medium.price),
             payload: JSON.stringify({
               action: 'select_bouquet',
               bouquet_id: 'medium',
@@ -366,7 +376,7 @@ async function showBouquetSelection(userId, event) {
         {
           action: {
             type: 'text',
-            label: `${BOUQUETS.premium.name} — ${BOUQUETS.premium.price}₽`,
+            label: makeButtonLabel(BOUQUETS.premium.name, BOUQUETS.premium.price),
             payload: JSON.stringify({
               action: 'select_bouquet',
               bouquet_id: 'premium',
