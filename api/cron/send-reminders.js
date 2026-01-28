@@ -19,27 +19,47 @@ const EVENT_TYPE_NAMES = {
   other: 'событие'
 };
 
-// Захардкоженные букеты
-const BOUQUETS = {
-  economy: {
-    id: 'economy',
-    name: 'Нежность',
-    price: 1500,
-    description: 'Компактный букет из сезонных цветов'
-  },
-  medium: {
-    id: 'medium',
-    name: 'Элегантность',
-    price: 2500,
-    description: 'Средний букет из роз и альстромерий'
-  },
-  premium: {
-    id: 'premium',
-    name: 'Роскошь',
-    price: 4000,
-    description: 'Большой букет из премиальных роз'
-  }
+// Дефолтные букеты (если в settings ничего нет)
+const DEFAULT_BOUQUETS = {
+  economy: { id: 'economy', name: 'Букет эконом', price: 1500 },
+  medium: { id: 'medium', name: 'Букет средний', price: 2500 },
+  premium: { id: 'premium', name: 'Букет премиум', price: 4000 }
 };
+
+// Получение букетов из настроек
+async function getBouquets() {
+  try {
+    const { data: settings } = await supabase
+      .from('settings')
+      .select('*')
+      .single();
+
+    if (!settings) {
+      return DEFAULT_BOUQUETS;
+    }
+
+    return {
+      economy: {
+        id: settings.bouquet_economy_vk_id || 'economy',
+        name: settings.bouquet_economy_name || DEFAULT_BOUQUETS.economy.name,
+        price: settings.bouquet_economy_price || DEFAULT_BOUQUETS.economy.price
+      },
+      medium: {
+        id: settings.bouquet_medium_vk_id || 'medium',
+        name: settings.bouquet_medium_name || DEFAULT_BOUQUETS.medium.name,
+        price: settings.bouquet_medium_price || DEFAULT_BOUQUETS.medium.price
+      },
+      premium: {
+        id: settings.bouquet_premium_vk_id || 'premium',
+        name: settings.bouquet_premium_name || DEFAULT_BOUQUETS.premium.name,
+        price: settings.bouquet_premium_price || DEFAULT_BOUQUETS.premium.price
+      }
+    };
+  } catch (error) {
+    console.error('Error loading bouquets:', error);
+    return DEFAULT_BOUQUETS;
+  }
+}
 
 export default async function handler(req, res) {
   console.log('🔔 Starting reminders job...');
@@ -227,6 +247,9 @@ async function updateEventStatus(eventId, status) {
 
 // Напоминание за 7 дней С КНОПКАМИ
 async function sendReminder7Days(event, settings) {
+  // Получаем актуальные букеты
+  const BOUQUETS = await getBouquets();
+  
   const eventTypeName = event.event_type === 'other'
     ? event.custom_event_name
     : EVENT_TYPE_NAMES[event.event_type];
@@ -314,6 +337,9 @@ ${BOUQUETS.premium.description}
 
 // Напоминание за 3 дня
 async function sendReminder3Days(event, settings) {
+  // Получаем актуальные букеты
+  const BOUQUETS = await getBouquets();
+  
   const eventTypeName = event.event_type === 'other'
     ? event.custom_event_name
     : EVENT_TYPE_NAMES[event.event_type];
