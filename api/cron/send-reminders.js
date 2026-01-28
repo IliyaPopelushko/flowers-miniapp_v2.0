@@ -245,6 +245,17 @@ async function updateEventStatus(eventId, status) {
 }
 
 // Напоминание за 7 дней С КНОПКАМИ
+// Функция для обрезки названия кнопки (макс 40 символов)
+function makeButtonLabel(name, price) {
+  const priceStr = ` — ${price}₽`;
+  const maxNameLength = 40 - priceStr.length;
+  const shortName = name.length > maxNameLength 
+    ? name.substring(0, maxNameLength - 1) + '…' 
+    : name;
+  return shortName + priceStr;
+}
+
+// Напоминание за 7 дней С КНОПКАМИ
 async function sendReminder7Days(event, settings) {
   // Получаем актуальные букеты из настроек
   const BOUQUETS = await getBouquets();
@@ -274,7 +285,7 @@ async function sendReminder7Days(event, settings) {
         {
           action: {
             type: 'text',
-            label: `${BOUQUETS.economy.name} — ${BOUQUETS.economy.price}₽`,
+            label: makeButtonLabel(BOUQUETS.economy.name, BOUQUETS.economy.price),
             payload: JSON.stringify({
               action: 'select_bouquet',
               bouquet_id: 'economy',
@@ -288,7 +299,7 @@ async function sendReminder7Days(event, settings) {
         {
           action: {
             type: 'text',
-            label: `${BOUQUETS.medium.name} — ${BOUQUETS.medium.price}₽`,
+            label: makeButtonLabel(BOUQUETS.medium.name, BOUQUETS.medium.price),
             payload: JSON.stringify({
               action: 'select_bouquet',
               bouquet_id: 'medium',
@@ -302,7 +313,7 @@ async function sendReminder7Days(event, settings) {
         {
           action: {
             type: 'text',
-            label: `${BOUQUETS.premium.name} — ${BOUQUETS.premium.price}₽`,
+            label: makeButtonLabel(BOUQUETS.premium.name, BOUQUETS.premium.price),
             payload: JSON.stringify({
               action: 'select_bouquet',
               bouquet_id: 'premium',
@@ -330,6 +341,7 @@ async function sendReminder7Days(event, settings) {
 }
 
 // Напоминание за 3 дня
+// Напоминание за 3 дня
 async function sendReminder3Days(event, settings) {
   // Получаем актуальные букеты из настроек
   const BOUQUETS = await getBouquets();
@@ -355,7 +367,7 @@ async function sendReminder3Days(event, settings) {
         {
           action: {
             type: 'text',
-            label: `${BOUQUETS.economy.name} — ${BOUQUETS.economy.price}₽`,
+            label: makeButtonLabel(BOUQUETS.economy.name, BOUQUETS.economy.price),
             payload: JSON.stringify({
               action: 'select_bouquet',
               bouquet_id: 'economy',
@@ -369,7 +381,7 @@ async function sendReminder3Days(event, settings) {
         {
           action: {
             type: 'text',
-            label: `${BOUQUETS.medium.name} — ${BOUQUETS.medium.price}₽`,
+            label: makeButtonLabel(BOUQUETS.medium.name, BOUQUETS.medium.price),
             payload: JSON.stringify({
               action: 'select_bouquet',
               bouquet_id: 'medium',
@@ -383,7 +395,7 @@ async function sendReminder3Days(event, settings) {
         {
           action: {
             type: 'text',
-            label: `${BOUQUETS.premium.name} — ${BOUQUETS.premium.price}₽`,
+            label: makeButtonLabel(BOUQUETS.premium.name, BOUQUETS.premium.price),
             payload: JSON.stringify({
               action: 'select_bouquet',
               bouquet_id: 'premium',
