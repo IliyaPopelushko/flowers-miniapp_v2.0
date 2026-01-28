@@ -99,7 +99,7 @@ export default async function handler(req, res) {
       .select('*')
       .single();
 
-    // Получаем события БЕЗ join для надёжности
+    // Получаем события
     const { data: events, error } = await supabase
       .from('events')
       .select('*')
@@ -115,10 +115,9 @@ export default async function handler(req, res) {
       console.log(`📌 Event: id=${ev.id}, day=${ev.event_day}, month=${ev.event_month}, status=${ev.status}, vk_user_id=${ev.vk_user_id}`);
     }
 
-    let sent = { day7: 0, day3: 0, day1: 0 };
-
-        // Собираем все напоминания для отправки
+    // Собираем все напоминания для отправки
     const remindersToSend = [];
+    let sent = { day7: 0, day3: 0, day1: 0 };
 
     for (const event of events || []) {
       // Получаем пользователя отдельно
@@ -247,7 +246,7 @@ async function updateEventStatus(eventId, status) {
 
 // Напоминание за 7 дней С КНОПКАМИ
 async function sendReminder7Days(event, settings) {
-  // Получаем актуальные букеты
+  // Получаем актуальные букеты из настроек
   const BOUQUETS = await getBouquets();
   
   const eventTypeName = event.event_type === 'other'
@@ -263,13 +262,8 @@ async function sendReminder7Days(event, settings) {
 Подобрали для тебя букеты:
 
 💐 ${BOUQUETS.economy.name} — ${BOUQUETS.economy.price}₽
-${BOUQUETS.economy.description}
-
 💐 ${BOUQUETS.medium.name} — ${BOUQUETS.medium.price}₽
-${BOUQUETS.medium.description}
-
 💐 ${BOUQUETS.premium.name} — ${BOUQUETS.premium.price}₽
-${BOUQUETS.premium.description}
 
 Выбери букет и оформи предзаказ! 👇`;
 
@@ -337,7 +331,7 @@ ${BOUQUETS.premium.description}
 
 // Напоминание за 3 дня
 async function sendReminder3Days(event, settings) {
-  // Получаем актуальные букеты
+  // Получаем актуальные букеты из настроек
   const BOUQUETS = await getBouquets();
   
   const eventTypeName = event.event_type === 'other'
