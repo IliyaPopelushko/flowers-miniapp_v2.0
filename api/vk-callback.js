@@ -29,8 +29,6 @@ const DEFAULT_BOUQUETS = {
 
 // ============================================
 // Получение букетов из настроек
-// ============================================
-
 async function getBouquets() {
   try {
     const { data: settings } = await supabase
@@ -42,21 +40,35 @@ async function getBouquets() {
       return DEFAULT_BOUQUETS;
     }
 
+    const groupId = process.env.VK_GROUP_ID || '229962076';
+
     return {
       economy: {
         id: settings.bouquet_economy_vk_id || 'economy',
         name: settings.bouquet_economy_name || DEFAULT_BOUQUETS.economy.name,
-        price: settings.bouquet_economy_price || DEFAULT_BOUQUETS.economy.price
+        price: settings.bouquet_economy_price || DEFAULT_BOUQUETS.economy.price,
+        photo: settings.bouquet_economy_photo || null,
+        link: settings.bouquet_economy_vk_id 
+          ? `https://vk.com/market-${groupId}?w=product-${groupId}_${settings.bouquet_economy_vk_id}`
+          : null
       },
       medium: {
         id: settings.bouquet_medium_vk_id || 'medium',
         name: settings.bouquet_medium_name || DEFAULT_BOUQUETS.medium.name,
-        price: settings.bouquet_medium_price || DEFAULT_BOUQUETS.medium.price
+        price: settings.bouquet_medium_price || DEFAULT_BOUQUETS.medium.price,
+        photo: settings.bouquet_medium_photo || null,
+        link: settings.bouquet_medium_vk_id 
+          ? `https://vk.com/market-${groupId}?w=product-${groupId}_${settings.bouquet_medium_vk_id}`
+          : null
       },
       premium: {
         id: settings.bouquet_premium_vk_id || 'premium',
         name: settings.bouquet_premium_name || DEFAULT_BOUQUETS.premium.name,
-        price: settings.bouquet_premium_price || DEFAULT_BOUQUETS.premium.price
+        price: settings.bouquet_premium_price || DEFAULT_BOUQUETS.premium.price,
+        photo: settings.bouquet_premium_photo || null,
+        link: settings.bouquet_premium_vk_id 
+          ? `https://vk.com/market-${groupId}?w=product-${groupId}_${settings.bouquet_premium_vk_id}`
+          : null
       }
     };
   } catch (error) {
