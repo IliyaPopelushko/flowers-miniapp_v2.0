@@ -337,11 +337,17 @@ async function showBouquetSelection(userId, event) {
 
   const dateStr = `${event.event_day}.${String(event.event_month).padStart(2, '0')}`;
 
-  const message = `Выбери букет для "${eventTypeName}" — ${event.recipient_name} (${dateStr}):
-
-💐 ${BOUQUETS.economy.name} — ${BOUQUETS.economy.price}₽
-💐 ${BOUQUETS.medium.name} — ${BOUQUETS.medium.price}₽
-💐 ${BOUQUETS.premium.name} — ${BOUQUETS.premium.price}₽`;
+  // Формируем текст с ссылками
+  let message = `Выбери букет для "${eventTypeName}" — ${event.recipient_name} (${dateStr}):\n\n`;
+  
+  message += `💐 ${BOUQUETS.economy.name} — ${BOUQUETS.economy.price}₽`;
+  if (BOUQUETS.economy.link) message += `\n   👀 ${BOUQUETS.economy.link}`;
+  
+  message += `\n\n💐 ${BOUQUETS.medium.name} — ${BOUQUETS.medium.price}₽`;
+  if (BOUQUETS.medium.link) message += `\n   👀 ${BOUQUETS.medium.link}`;
+  
+  message += `\n\n💐 ${BOUQUETS.premium.name} — ${BOUQUETS.premium.price}₽`;
+  if (BOUQUETS.premium.link) message += `\n   👀 ${BOUQUETS.premium.link}`;
 
   // Функция для обрезки названия (макс 40 символов с учётом цены)
   function makeButtonLabel(name, price) {
@@ -401,9 +407,7 @@ async function showBouquetSelection(userId, event) {
     ]
   };
 
-  // Очищаем состояние после показа кнопок
   await clearUserState(userId);
-
   await sendMessage(userId, message, keyboard);
 }
 
