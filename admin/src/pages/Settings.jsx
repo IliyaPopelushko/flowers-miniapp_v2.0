@@ -10,9 +10,9 @@ export default function Settings() {
 
   // Форма для букетов
   const [bouquets, setBouquets] = useState({
-    economy: { vk_id: '', name: '', price: '' },
-    medium: { vk_id: '', name: '', price: '' },
-    premium: { vk_id: '', name: '', price: '' }
+    economy: { vk_id: '', name: '', price: '', photo: '' },
+    medium: { vk_id: '', name: '', price: '', photo: '' },
+    premium: { vk_id: '', name: '', price: '', photo: '' }
   });
 
   useEffect(() => {
@@ -29,22 +29,24 @@ export default function Settings() {
       
       setSettings(s);
       
-      // Заполняем форму текущими значениями
       setBouquets({
         economy: {
           vk_id: s.bouquet_economy_vk_id || '',
           name: s.bouquet_economy_name || '',
-          price: s.bouquet_economy_price || ''
+          price: s.bouquet_economy_price || '',
+          photo: s.bouquet_economy_photo || ''
         },
         medium: {
           vk_id: s.bouquet_medium_vk_id || '',
           name: s.bouquet_medium_name || '',
-          price: s.bouquet_medium_price || ''
+          price: s.bouquet_medium_price || '',
+          photo: s.bouquet_medium_photo || ''
         },
         premium: {
           vk_id: s.bouquet_premium_vk_id || '',
           name: s.bouquet_premium_name || '',
-          price: s.bouquet_premium_price || ''
+          price: s.bouquet_premium_price || '',
+          photo: s.bouquet_premium_photo || ''
         }
       });
 
@@ -75,14 +77,17 @@ export default function Settings() {
         bouquet_economy_vk_id: bouquets.economy.vk_id || null,
         bouquet_economy_name: bouquets.economy.name || null,
         bouquet_economy_price: bouquets.economy.price ? Number(bouquets.economy.price) : null,
+        bouquet_economy_photo: bouquets.economy.photo || null,
         
         bouquet_medium_vk_id: bouquets.medium.vk_id || null,
         bouquet_medium_name: bouquets.medium.name || null,
         bouquet_medium_price: bouquets.medium.price ? Number(bouquets.medium.price) : null,
+        bouquet_medium_photo: bouquets.medium.photo || null,
         
         bouquet_premium_vk_id: bouquets.premium.vk_id || null,
         bouquet_premium_name: bouquets.premium.name || null,
-        bouquet_premium_price: bouquets.premium.price ? Number(bouquets.premium.price) : null
+        bouquet_premium_price: bouquets.premium.price ? Number(bouquets.premium.price) : null,
+        bouquet_premium_photo: bouquets.premium.photo || null
       };
 
       await updateSettings(updates);
@@ -110,58 +115,63 @@ export default function Settings() {
       <h1>⚙️ Настройки букетов</h1>
       
       <p style={styles.description}>
-        Укажите 3 букета для напоминаний клиентам. Данные можно взять из раздела "Товары" вашей группы ВК.
+        Укажите 3 букета для напоминаний клиентам.
       </p>
 
       {error && <div style={styles.error}>❌ {error}</div>}
       {success && <div style={styles.success}>✅ Настройки сохранены!</div>}
 
       <div style={styles.hint}>
-        <strong>💡 Как узнать ID товара:</strong>
+        <strong>💡 Как получить данные:</strong>
         <ol>
           <li>Откройте товар в группе ВК</li>
-          <li>В адресной строке будет: <code>vk.com/market-123456_<strong>789</strong></code></li>
-          <li>Число после подчёркивания (789) — это ID товара</li>
+          <li><strong>ID товара:</strong> в адресной строке <code>vk.com/market-123_<strong>789</strong></code> → ID = 789</li>
+          <li><strong>Фото:</strong> кликните правой кнопкой на фото → "Копировать адрес изображения"</li>
         </ol>
       </div>
 
       {/* Эконом букет */}
       <BouquetForm
-        title="💰 Эконом (до 1500₽)"
+        title="💰 Эконом"
         data={bouquets.economy}
         onChange={(field, value) => handleChange('economy', field, value)}
       />
 
       {/* Средний букет */}
       <BouquetForm
-        title="💐 Средний (1500-3000₽)"
+        title="💐 Средний"
         data={bouquets.medium}
         onChange={(field, value) => handleChange('medium', field, value)}
       />
 
       {/* Премиум букет */}
       <BouquetForm
-        title="👑 Премиум (от 3000₽)"
+        title="👑 Премиум"
         data={bouquets.premium}
         onChange={(field, value) => handleChange('premium', field, value)}
       />
 
       {/* Предпросмотр */}
       <div style={styles.preview}>
-        <h3>📋 Предпросмотр (как увидит клиент)</h3>
-        <div style={styles.previewContent}>
-          {bouquets.economy.name && (
-            <div>💐 {bouquets.economy.name} — {bouquets.economy.price}₽</div>
-          )}
-          {bouquets.medium.name && (
-            <div>💐 {bouquets.medium.name} — {bouquets.medium.price}₽</div>
-          )}
-          {bouquets.premium.name && (
-            <div>💐 {bouquets.premium.name} — {bouquets.premium.price}₽</div>
-          )}
-          {!bouquets.economy.name && !bouquets.medium.name && !bouquets.premium.name && (
-            <div style={styles.noData}>Заполните данные букетов</div>
-          )}
+        <h3>📋 Предпросмотр</h3>
+        <div style={styles.previewCards}>
+          {['economy', 'medium', 'premium'].map(cat => (
+            bouquets[cat].name && (
+              <div key={cat} style={styles.previewCard}>
+                {bouquets[cat].photo && (
+                  <img 
+                    src={bouquets[cat].photo} 
+                    alt={bouquets[cat].name}
+                    style={styles.previewImage}
+                  />
+                )}
+                <div style={styles.previewInfo}>
+                  <strong>{bouquets[cat].name}</strong>
+                  <div>{bouquets[cat].price}₽</div>
+                </div>
+              </div>
+            )
+          ))}
         </div>
       </div>
 
@@ -176,24 +186,13 @@ export default function Settings() {
   );
 }
 
-// Компонент формы для одного букета
 function BouquetForm({ title, data, onChange }) {
   return (
     <div style={styles.bouquetCard}>
       <h3>{title}</h3>
-      <div style={styles.formRow}>
+      <div style={styles.formGrid}>
         <div style={styles.formGroup}>
-          <label style={styles.label}>ID товара в ВК</label>
-          <input
-            type="text"
-            style={styles.input}
-            placeholder="Например: 123456"
-            value={data.vk_id}
-            onChange={(e) => onChange('vk_id', e.target.value)}
-          />
-        </div>
-        <div style={styles.formGroup}>
-          <label style={styles.label}>Название букета</label>
+          <label style={styles.label}>Название букета *</label>
           <input
             type="text"
             style={styles.input}
@@ -203,7 +202,7 @@ function BouquetForm({ title, data, onChange }) {
           />
         </div>
         <div style={styles.formGroup}>
-          <label style={styles.label}>Цена (₽)</label>
+          <label style={styles.label}>Цена (₽) *</label>
           <input
             type="number"
             style={styles.input}
@@ -212,7 +211,32 @@ function BouquetForm({ title, data, onChange }) {
             onChange={(e) => onChange('price', e.target.value)}
           />
         </div>
+        <div style={styles.formGroup}>
+          <label style={styles.label}>ID товара в ВК</label>
+          <input
+            type="text"
+            style={styles.input}
+            placeholder="123456"
+            value={data.vk_id}
+            onChange={(e) => onChange('vk_id', e.target.value)}
+          />
+        </div>
+        <div style={styles.formGroupFull}>
+          <label style={styles.label}>Ссылка на фото</label>
+          <input
+            type="text"
+            style={styles.input}
+            placeholder="https://sun9-xx.userapi.com/..."
+            value={data.photo}
+            onChange={(e) => onChange('photo', e.target.value)}
+          />
+        </div>
       </div>
+      {data.photo && (
+        <div style={styles.photoPreview}>
+          <img src={data.photo} alt="Превью" style={styles.photoImg} />
+        </div>
+      )}
     </div>
   );
 }
@@ -254,15 +278,20 @@ const styles = {
     borderRadius: '12px',
     marginBottom: '20px'
   },
-  formRow: {
+  formGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+    gridTemplateColumns: 'repeat(3, 1fr)',
     gap: '15px',
     marginTop: '15px'
   },
   formGroup: {
     display: 'flex',
     flexDirection: 'column'
+  },
+  formGroupFull: {
+    display: 'flex',
+    flexDirection: 'column',
+    gridColumn: '1 / -1'
   },
   label: {
     fontSize: '13px',
@@ -276,19 +305,42 @@ const styles = {
     borderRadius: '8px',
     outline: 'none'
   },
+  photoPreview: {
+    marginTop: '15px'
+  },
+  photoImg: {
+    maxWidth: '150px',
+    maxHeight: '150px',
+    borderRadius: '8px',
+    objectFit: 'cover'
+  },
   preview: {
     background: '#fff3e0',
     padding: '20px',
     borderRadius: '12px',
     marginBottom: '25px'
   },
-  previewContent: {
-    marginTop: '10px',
-    lineHeight: '1.8'
+  previewCards: {
+    display: 'flex',
+    gap: '15px',
+    marginTop: '15px',
+    flexWrap: 'wrap'
   },
-  noData: {
-    color: '#999',
-    fontStyle: 'italic'
+  previewCard: {
+    background: 'white',
+    borderRadius: '10px',
+    padding: '10px',
+    width: '150px'
+  },
+  previewImage: {
+    width: '100%',
+    height: '100px',
+    objectFit: 'cover',
+    borderRadius: '8px'
+  },
+  previewInfo: {
+    marginTop: '10px',
+    textAlign: 'center'
   },
   saveButton: {
     background: '#4CAF50',
