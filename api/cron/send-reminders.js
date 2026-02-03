@@ -204,7 +204,7 @@ export default async function handler(req, res) {
       }
       
       if (reminder.type === '7d') {
-        await sendReminder7Days(reminder.event, reminder.settings);
+        await (reminder.event, reminder.settings);
         await updateEventStatus(reminder.event.id, 'reminded_7d');
       } else if (reminder.type === '3d') {
         await (reminder.event, reminder.settings);
@@ -269,7 +269,6 @@ function makeButtonLabel(name, price) {
   return shortName + priceStr;
 }
 
-// Напоминание за 7 дней С КНОПКАМИ
 async function sendReminder7Days(event, settings) {
   const BOUQUETS = await getBouquets();
   const groupId = process.env.VK_GROUP_ID || '229962076';
@@ -280,18 +279,6 @@ async function sendReminder7Days(event, settings) {
 
   const userName = event.users?.first_name || 'друг';
 
-  const message = `Привет, ${userName}! 🌸
-
-Через неделю ${eventTypeName} у ${event.recipient_name}!
-
-Подобрали для тебя букеты:
-
-💐 ${BOUQUETS.economy.name} — ${BOUQUETS.economy.price}₽
-💐 ${BOUQUETS.medium.name} — ${BOUQUETS.medium.price}₽
-💐 ${BOUQUETS.premium.name} — ${BOUQUETS.premium.price}₽
-
-Выбери букет и оформи предзаказ! 👇`;
-
   function makeButtonLabel(name, price) {
     const priceStr = ` — ${price}₽`;
     const maxNameLength = 40 - priceStr.length;
@@ -301,6 +288,61 @@ async function sendReminder7Days(event, settings) {
     return shortName + priceStr;
   }
 
+  // Проверяем есть ли товары
+  const hasProducts = 
+    (BOUQUETS.economy.id && BOUQUETS.economy.id !== 'economy') ||
+    (BOUQUETS.medium.id && BOUQUETS.medium.id !== 'medium') ||
+    (BOUQUETS.premium.id && BOUQUETS.premium.id !== 'premium');
+
+  // Вступительное сообщение
+  await sendMessage(event.vk_user_id, `Привет, ${userName}! 🌸
+
+Через неделю ${eventTypeName} у ${event.recipient_name}!
+
+Подобрали для тебя букеты:`);
+
+  await delay(500);
+
+  // Отправляем каждый товар отдельно (если есть ID)
+  if (hasProducts) {
+    if (BOUQUETS.economy.id && BOUQUETS.economy.id !== 'economy') {
+      await sendMessage(
+        event.vk_user_id, 
+        `💰 ${BOUQUETS.economy.name} — ${BOUQUETS.economy.price}₽`,
+        null,
+        `market-${groupId}_${BOUQUETS.economy.id}`
+      );
+      await delay(500);
+    }
+
+    if (BOUQUETS.medium.id && BOUQUETS.medium.id !== 'medium') {
+      await sendMessage(
+        event.vk_user_id, 
+        `💐 ${BOUQUETS.medium.name} — ${BOUQUETS.medium.price}₽`,
+        null,
+        `market-${groupId}_${BOUQUETS.medium.id}`
+      );
+      await delay(500);
+    }
+
+    if (BOUQUETS.premium.id && BOUQUETS.premium.id !== 'premium') {
+      await sendMessage(
+        event.vk_user_id, 
+        `👑 ${BOUQUETS.premium.name} — ${BOUQUETS.premium.price}₽`,
+        null,
+        `market-${groupId}_${BOUQUETS.premium.id}`
+      );
+      await delay(500);
+    }
+  } else {
+    // Если нет ID товаров — просто текст
+    await sendMessage(event.vk_user_id, `💐 ${BOUQUETS.economy.name} — ${BOUQUETS.economy.price}₽
+💐 ${BOUQUETS.medium.name} — ${BOUQUETS.medium.price}₽
+💐 ${BOUQUETS.premium.name} — ${BOUQUETS.premium.price}₽`);
+    await delay(500);
+  }
+
+  // Сообщение с кнопками
   const keyboard = {
     inline: true,
     buttons: [
@@ -359,25 +401,10 @@ async function sendReminder7Days(event, settings) {
     ]
   };
 
-  // Прикрепляем карточки товаров
-  const attachments = [];
-  if (BOUQUETS.economy.id && BOUQUETS.economy.id !== 'economy') {
-    attachments.push(`market-${groupId}_${BOUQUETS.economy.id}`);
-  }
-  if (BOUQUETS.medium.id && BOUQUETS.medium.id !== 'medium') {
-    attachments.push(`market-${groupId}_${BOUQUETS.medium.id}`);
-  }
-  if (BOUQUETS.premium.id && BOUQUETS.premium.id !== 'premium') {
-    attachments.push(`market-${groupId}_${BOUQUETS.premium.id}`);
-  }
-
-  const attachment = attachments.length > 0 ? attachments.join(',') : null;
-
-  const result = await sendMessage(event.vk_user_id, message, keyboard, attachment);
+  const result = await sendMessage(event.vk_user_id, 'Выбери букет и оформи предзаказ! 👇', keyboard);
   console.log(`📤 Sent 7-day reminder to ${event.vk_user_id}:`, result.success ? 'OK' : result.error);
 }
 
-// Напоминание за 3 дня
 async function sendReminder3Days(event, settings) {
   const BOUQUETS = await getBouquets();
   const groupId = process.env.VK_GROUP_ID || '229962076';
@@ -388,14 +415,6 @@ async function sendReminder3Days(event, settings) {
 
   const userName = event.users?.first_name || 'друг';
 
-  const message = `${userName}, уже через 3 дня ${eventTypeName} у ${event.recipient_name}! 🌷
-
-Ещё не выбрал букет? Успей оформить предзаказ!
-
-💐 ${BOUQUETS.economy.name} — ${BOUQUETS.economy.price}₽
-💐 ${BOUQUETS.medium.name} — ${BOUQUETS.medium.price}₽
-💐 ${BOUQUETS.premium.name} — ${BOUQUETS.premium.price}₽`;
-
   function makeButtonLabel(name, price) {
     const priceStr = ` — ${price}₽`;
     const maxNameLength = 40 - priceStr.length;
@@ -403,6 +422,51 @@ async function sendReminder3Days(event, settings) {
       ? name.substring(0, maxNameLength - 1) + '…' 
       : name;
     return shortName + priceStr;
+  }
+
+  const hasProducts = 
+    (BOUQUETS.economy.id && BOUQUETS.economy.id !== 'economy') ||
+    (BOUQUETS.medium.id && BOUQUETS.medium.id !== 'medium') ||
+    (BOUQUETS.premium.id && BOUQUETS.premium.id !== 'premium');
+
+  // Вступительное сообщение
+  await sendMessage(event.vk_user_id, `${userName}, уже через 3 дня ${eventTypeName} у ${event.recipient_name}! 🌷
+
+Ещё не выбрал букет? Успей оформить предзаказ!`);
+
+  await delay(500);
+
+  // Отправляем товары
+  if (hasProducts) {
+    if (BOUQUETS.economy.id && BOUQUETS.economy.id !== 'economy') {
+      await sendMessage(
+        event.vk_user_id, 
+        `💰 ${BOUQUETS.economy.name} — ${BOUQUETS.economy.price}₽`,
+        null,
+        `market-${groupId}_${BOUQUETS.economy.id}`
+      );
+      await delay(500);
+    }
+
+    if (BOUQUETS.medium.id && BOUQUETS.medium.id !== 'medium') {
+      await sendMessage(
+        event.vk_user_id, 
+        `💐 ${BOUQUETS.medium.name} — ${BOUQUETS.medium.price}₽`,
+        null,
+        `market-${groupId}_${BOUQUETS.medium.id}`
+      );
+      await delay(500);
+    }
+
+    if (BOUQUETS.premium.id && BOUQUETS.premium.id !== 'premium') {
+      await sendMessage(
+        event.vk_user_id, 
+        `👑 ${BOUQUETS.premium.name} — ${BOUQUETS.premium.price}₽`,
+        null,
+        `market-${groupId}_${BOUQUETS.premium.id}`
+      );
+      await delay(500);
+    }
   }
 
   const keyboard = {
@@ -453,21 +517,7 @@ async function sendReminder3Days(event, settings) {
     ]
   };
 
-  // Прикрепляем карточки товаров
-  const attachments = [];
-  if (BOUQUETS.economy.id && BOUQUETS.economy.id !== 'economy') {
-    attachments.push(`market-${groupId}_${BOUQUETS.economy.id}`);
-  }
-  if (BOUQUETS.medium.id && BOUQUETS.medium.id !== 'medium') {
-    attachments.push(`market-${groupId}_${BOUQUETS.medium.id}`);
-  }
-  if (BOUQUETS.premium.id && BOUQUETS.premium.id !== 'premium') {
-    attachments.push(`market-${groupId}_${BOUQUETS.premium.id}`);
-  }
-
-  const attachment = attachments.length > 0 ? attachments.join(',') : null;
-
-  const result = await sendMessage(event.vk_user_id, message, keyboard, attachment);
+  const result = await sendMessage(event.vk_user_id, '👆 Выбери букет:', keyboard);
   console.log(`📤 Sent 3-day reminder to ${event.vk_user_id}:`, result.success ? 'OK' : result.error);
 }
 
