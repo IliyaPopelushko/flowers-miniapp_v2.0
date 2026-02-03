@@ -207,7 +207,7 @@ export default async function handler(req, res) {
         await sendReminder7Days(reminder.event, reminder.settings);
         await updateEventStatus(reminder.event.id, 'reminded_7d');
       } else if (reminder.type === '3d') {
-        await sendReminder3Days(reminder.event, reminder.settings);
+        await (reminder.event, reminder.settings);
         await updateEventStatus(reminder.event.id, 'reminded_3d');
       } else if (reminder.type === '1d') {
         await sendReminder1Day(reminder.event, reminder.settings);
@@ -378,10 +378,9 @@ async function sendReminder7Days(event, settings) {
 }
 
 // Напоминание за 3 дня
-// Напоминание за 3 дня
 async function sendReminder3Days(event, settings) {
-  // Получаем актуальные букеты из настроек
   const BOUQUETS = await getBouquets();
+  const groupId = process.env.VK_GROUP_ID || '229962076';
   
   const eventTypeName = event.event_type === 'other'
     ? event.custom_event_name
@@ -396,6 +395,15 @@ async function sendReminder3Days(event, settings) {
 💐 ${BOUQUETS.economy.name} — ${BOUQUETS.economy.price}₽
 💐 ${BOUQUETS.medium.name} — ${BOUQUETS.medium.price}₽
 💐 ${BOUQUETS.premium.name} — ${BOUQUETS.premium.price}₽`;
+
+  function makeButtonLabel(name, price) {
+    const priceStr = ` — ${price}₽`;
+    const maxNameLength = 40 - priceStr.length;
+    const shortName = name.length > maxNameLength 
+      ? name.substring(0, maxNameLength - 1) + '…' 
+      : name;
+    return shortName + priceStr;
+  }
 
   const keyboard = {
     inline: true,
@@ -445,7 +453,21 @@ async function sendReminder3Days(event, settings) {
     ]
   };
 
-  const result = await sendMessage(event.vk_user_id, message, keyboard);
+  // Прикрепляем карточки товаров
+  const attachments = [];
+  if (BOUQUETS.economy.id && BOUQUETS.economy.id !== 'economy') {
+    attachments.push(`market-${groupId}_${BOUQUETS.economy.id}`);
+  }
+  if (BOUQUETS.medium.id && BOUQUETS.medium.id !== 'medium') {
+    attachments.push(`market-${groupId}_${BOUQUETS.medium.id}`);
+  }
+  if (BOUQUETS.premium.id && BOUQUETS.premium.id !== 'premium') {
+    attachments.push(`market-${groupId}_${BOUQUETS.premium.id}`);
+  }
+
+  const attachment = attachments.length > 0 ? attachments.join(',') : null;
+
+  const result = await sendMessage(event.vk_user_id, message, keyboard, attachment);
   console.log(`📤 Sent 3-day reminder to ${event.vk_user_id}:`, result.success ? 'OK' : result.error);
 }
 
