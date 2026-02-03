@@ -338,14 +338,6 @@ async function showBouquetSelection(userId, event) {
 
   const dateStr = `${event.event_day}.${String(event.event_month).padStart(2, '0')}`;
 
-  const message = `Выбери букет для "${eventTypeName}" — ${event.recipient_name} (${dateStr}):
-
-💐 ${BOUQUETS.economy.name} — ${BOUQUETS.economy.price}₽
-💐 ${BOUQUETS.medium.name} — ${BOUQUETS.medium.price}₽
-💐 ${BOUQUETS.premium.name} — ${BOUQUETS.premium.price}₽
-
-👆 Нажми на кнопку, чтобы выбрать букет`;
-
   // Функция для обрезки названия (макс 40 символов)
   function makeButtonLabel(name, price) {
     const priceStr = ` — ${price}₽`;
@@ -355,6 +347,61 @@ async function showBouquetSelection(userId, event) {
       : name;
     return shortName + priceStr;
   }
+
+  // Собираем товары для отправки
+  const hasProducts = 
+    (BOUQUETS.economy.id && BOUQUETS.economy.id !== 'economy') ||
+    (BOUQUETS.medium.id && BOUQUETS.medium.id !== 'medium') ||
+    (BOUQUETS.premium.id && BOUQUETS.premium.id !== 'premium');
+
+  // Если есть ID товаров — отправляем каждый отдельным сообщением
+  if (hasProducts) {
+    // Вступительное сообщение
+    await sendMessage(userId, `Выбери букет для "${eventTypeName}" — ${event.recipient_name} (${dateStr}):\n\n👇 Смотри варианты:`);
+    
+    // Небольшая задержка между сообщениями
+    await delay(500);
+
+    // Отправляем каждый товар отдельно
+    if (BOUQUETS.economy.id && BOUQUETS.economy.id !== 'economy') {
+      await sendMessage(
+        userId, 
+        `💰 Эконом: ${BOUQUETS.economy.name} — ${BOUQUETS.economy.price}₽`,
+        null,
+        `market-${groupId}_${BOUQUETS.economy.id}`
+      );
+      await delay(500);
+    }
+
+    if (BOUQUETS.medium.id && BOUQUETS.medium.id !== 'medium') {
+      await sendMessage(
+        userId, 
+        `💐 Средний: ${BOUQUETS.medium.name} — ${BOUQUETS.medium.price}₽`,
+        null,
+        `market-${groupId}_${BOUQUETS.medium.id}`
+      );
+      await delay(500);
+    }
+
+    if (BOUQUETS.premium.id && BOUQUETS.premium.id !== 'premium') {
+      await sendMessage(
+        userId, 
+        `👑 Премиум: ${BOUQUETS.premium.name} — ${BOUQUETS.premium.price}₽`,
+        null,
+        `market-${groupId}_${BOUQUETS.premium.id}`
+      );
+      await delay(500);
+    }
+  }
+
+  // Сообщение с кнопками выбора
+  const buttonMessage = hasProducts 
+    ? '👆 Выбери букет:'
+    : `Выбери букет для "${eventTypeName}" — ${event.recipient_name} (${dateStr}):
+
+💐 ${BOUQUETS.economy.name} — ${BOUQUETS.economy.price}₽
+💐 ${BOUQUETS.medium.name} — ${BOUQUETS.medium.price}₽
+💐 ${BOUQUETS.premium.name} — ${BOUQUETS.premium.price}₽`;
 
   const keyboard = {
     inline: true,
@@ -404,22 +451,13 @@ async function showBouquetSelection(userId, event) {
     ]
   };
 
-  // Собираем attachment с товарами (если есть ID)
-  const attachments = [];
-  if (BOUQUETS.economy.id && BOUQUETS.economy.id !== 'economy') {
-    attachments.push(`market-${groupId}_${BOUQUETS.economy.id}`);
-  }
-  if (BOUQUETS.medium.id && BOUQUETS.medium.id !== 'medium') {
-    attachments.push(`market-${groupId}_${BOUQUETS.medium.id}`);
-  }
-  if (BOUQUETS.premium.id && BOUQUETS.premium.id !== 'premium') {
-    attachments.push(`market-${groupId}_${BOUQUETS.premium.id}`);
-  }
-
-  const attachment = attachments.length > 0 ? attachments.join(',') : null;
-
   await clearUserState(userId);
-  await sendMessage(userId, message, keyboard, attachment);
+  await sendMessage(userId, buttonMessage, keyboard);
+}
+
+// Добавь функцию delay если её нет в этом файле
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 // ============================================
