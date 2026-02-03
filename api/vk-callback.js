@@ -330,6 +330,7 @@ async function handleDialogState(userId, text, state) {
 async function showBouquetSelection(userId, event) {
   // Получаем актуальные букеты из настроек
   const BOUQUETS = await getBouquets();
+  const groupId = process.env.VK_GROUP_ID || '229962076';
   
   const eventTypeName = event.event_type === 'other'
     ? event.custom_event_name
@@ -337,19 +338,15 @@ async function showBouquetSelection(userId, event) {
 
   const dateStr = `${event.event_day}.${String(event.event_month).padStart(2, '0')}`;
 
-  // Формируем текст с ссылками
-  let message = `Выбери букет для "${eventTypeName}" — ${event.recipient_name} (${dateStr}):\n\n`;
-  
-  message += `💐 ${BOUQUETS.economy.name} — ${BOUQUETS.economy.price}₽`;
-  if (BOUQUETS.economy.link) message += `\n   👀 ${BOUQUETS.economy.link}`;
-  
-  message += `\n\n💐 ${BOUQUETS.medium.name} — ${BOUQUETS.medium.price}₽`;
-  if (BOUQUETS.medium.link) message += `\n   👀 ${BOUQUETS.medium.link}`;
-  
-  message += `\n\n💐 ${BOUQUETS.premium.name} — ${BOUQUETS.premium.price}₽`;
-  if (BOUQUETS.premium.link) message += `\n   👀 ${BOUQUETS.premium.link}`;
+  const message = `Выбери букет для "${eventTypeName}" — ${event.recipient_name} (${dateStr}):
 
-  // Функция для обрезки названия (макс 40 символов с учётом цены)
+💐 ${BOUQUETS.economy.name} — ${BOUQUETS.economy.price}₽
+💐 ${BOUQUETS.medium.name} — ${BOUQUETS.medium.price}₽
+💐 ${BOUQUETS.premium.name} — ${BOUQUETS.premium.price}₽
+
+👆 Нажми на кнопку, чтобы выбрать букет`;
+
+  // Функция для обрезки названия (макс 40 символов)
   function makeButtonLabel(name, price) {
     const priceStr = ` — ${price}₽`;
     const maxNameLength = 40 - priceStr.length;
@@ -407,8 +404,22 @@ async function showBouquetSelection(userId, event) {
     ]
   };
 
+  // Собираем attachment с товарами (если есть ID)
+  const attachments = [];
+  if (BOUQUETS.economy.id && BOUQUETS.economy.id !== 'economy') {
+    attachments.push(`market-${groupId}_${BOUQUETS.economy.id}`);
+  }
+  if (BOUQUETS.medium.id && BOUQUETS.medium.id !== 'medium') {
+    attachments.push(`market-${groupId}_${BOUQUETS.medium.id}`);
+  }
+  if (BOUQUETS.premium.id && BOUQUETS.premium.id !== 'premium') {
+    attachments.push(`market-${groupId}_${BOUQUETS.premium.id}`);
+  }
+
+  const attachment = attachments.length > 0 ? attachments.join(',') : null;
+
   await clearUserState(userId);
-  await sendMessage(userId, message, keyboard);
+  await sendMessage(userId, message, keyboard, attachment);
 }
 
 // ============================================
