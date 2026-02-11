@@ -1,266 +1,435 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { api } from '../api';
 
-const styles = {
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '24px'
+const STATUS_CONFIG = {
+  new: { 
+    label: '🆕 Новый', 
+    color: '#2196F3',
+    bg: '#e3f2fd',
+    next: ['confirmed', 'cancelled']
   },
-  title: {
-    fontSize: '24px',
-    fontWeight: 'bold'
+  confirmed: { 
+    label: '✅ Подтверждён', 
+    color: '#4CAF50',
+    bg: '#e8f5e9',
+    next: ['completed', 'cancelled']
   },
-  tabs: {
-    display: 'flex',
-    gap: '8px',
-    marginBottom: '20px'
+  completed: { 
+    label: '🎉 Выполнен', 
+    color: '#9E9E9E',
+    bg: '#f5f5f5',
+    next: []
   },
-  tab: {
-    padding: '10px 20px',
-    border: 'none',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontWeight: '500',
-    background: '#f0f0f0',
-    color: '#666'
-  },
-  tabActive: {
-    background: '#e91e63',
-    color: '#fff'
-  },
-  card: {
-    background: '#fff',
-    borderRadius: '12px',
-    padding: '20px',
-    marginBottom: '16px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
-  },
-  cardHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: '16px'
-  },
-  cardTitle: {
-    fontSize: '18px',
-    fontWeight: '600'
-  },
-  badge: {
-    display: 'inline-block',
-    padding: '6px 12px',
-    borderRadius: '16px',
-    fontSize: '13px',
-    fontWeight: '500'
-  },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-    gap: '12px',
-    marginBottom: '16px'
-  },
-  field: {
-    fontSize: '14px'
-  },
-  fieldLabel: {
-    color: '#999',
-    marginBottom: '4px'
-  },
-  actions: {
-    display: 'flex',
-    gap: '8px',
-    marginTop: '16px',
-    paddingTop: '16px',
-    borderTop: '1px solid #eee'
-  },
-  btn: {
-    padding: '8px 16px',
-    border: 'none',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    fontWeight: '500',
-    fontSize: '14px'
-  },
-  empty: {
-    textAlign: 'center',
-    padding: '60px 20px',
-    color: '#999'
+  cancelled: { 
+    label: '❌ Отменён', 
+    color: '#f44336',
+    bg: '#ffebee',
+    next: []
   }
 };
 
-const statusColors = {
-  new: { background: '#e3f2fd', color: '#1976d2' },
-  confirmed: { background: '#fff3e0', color: '#f57c00' },
-  completed: { background: '#e8f5e9', color: '#388e3c' },
-  cancelled: { background: '#ffebee', color: '#d32f2f' }
+const STATUS_ACTIONS = {
+  confirmed: { label: '✅ Подтвердить', color: '#4CAF50' },
+  completed: { label: '🎉 Выполнен', color: '#FF9800' },
+  cancelled: { label: '❌ Отменить', color: '#f44336' }
 };
 
-const statusLabels = {
-  new: 'Новый',
-  confirmed: 'Подтверждён',
-  completed: 'Выполнен',
-  cancelled: 'Отменён'
-};
-
-function Preorders() {
+export default function Preorders() {
   const [preorders, setPreorders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('new');
+  const [error, setError] = useState(null);
+  const [filter, setFilter] = useState('active'); // active, all, completed
 
   useEffect(() => {
     loadPreorders();
   }, [filter]);
 
-  const loadPreorders = async () => {
+  async function loadPreorders() {
     try {
       setLoading(true);
-      const params = filter !== 'all' ? { status: filter } : {};
+      setError(null);
+      
+      const params = {};
+      if (filter === 'active') {
+        params.status = 'new,confirmed';
+      } else if (filter === 'completed') {
+        params.status = 'completed,cancelled';
+      }
+      
       const data = await api.getPreorders(params);
       setPreorders(data.preorders || []);
-    } catch (e) {
-      console.error('Failed to load preorders:', e);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  };
+  }
 
-  const updateStatus = async (id, newStatus) => {
+  async function handleStatusChange(preorderId, newStatus) {
     try {
-      await api.updatePreorderStatus(id, newStatus);
-      loadPreorders();
-    } catch (e) {
-      alert('Ошибка: ' + e.message);
+      await api.updatePreorderStatus(preorderId, newStatus);
+      // Обновляем локально
+      setPreorders(prev => 
+        prev.map(p => 
+          p.id === preorderId ? { ...p, status: newStatus } : p
+        )
+      );
+    } catch (err) {
+      alert('Ошибка: ' + err.message);
     }
-  };
+  }
 
-  const formatDate = (dateStr) => {
-    return new Date(dateStr).toLocaleDateString('ru-RU', {
-      day: 'numeric',
-      month: 'long',
+  function formatDate(dateStr) {
+    if (!dateStr) return '—';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('ru-RU', { 
+      day: 'numeric', 
+      month: 'short',
       year: 'numeric'
     });
-  };
+  }
+
+  function formatDeliveryDate(dateStr) {
+    if (!dateStr) return '—';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('ru-RU', { 
+      day: 'numeric', 
+      month: 'long'
+    });
+  }
+
+  if (loading) {
+    return (
+      <div style={styles.container}>
+        <h1>📦 Предзаказы</h1>
+        <p>Загрузка...</p>
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <div style={styles.header}>
-        <h1 style={styles.title}>🛒 Предзаказы</h1>
-        <span style={{ color: '#666' }}>Найдено: {preorders.length}</span>
+    <div style={styles.container}>
+      <h1>📦 Предзаказы</h1>
+
+      {error && <div style={styles.error}>❌ {error}</div>}
+
+      {/* Фильтры */}
+      <div style={styles.filters}>
+        <button 
+          style={{
+            ...styles.filterBtn,
+            ...(filter === 'active' ? styles.filterBtnActive : {})
+          }}
+          onClick={() => setFilter('active')}
+        >
+          🔔 Активные
+        </button>
+        <button 
+          style={{
+            ...styles.filterBtn,
+            ...(filter === 'all' ? styles.filterBtnActive : {})
+          }}
+          onClick={() => setFilter('all')}
+        >
+          📋 Все
+        </button>
+        <button 
+          style={{
+            ...styles.filterBtn,
+            ...(filter === 'completed' ? styles.filterBtnActive : {})
+          }}
+          onClick={() => setFilter('completed')}
+        >
+          ✅ Завершённые
+        </button>
       </div>
 
-      <div style={styles.tabs}>
-        {[
-          { key: 'new', label: '🆕 Новые' },
-          { key: 'confirmed', label: '✅ Подтверждённые' },
-          { key: 'completed', label: '📦 Выполненные' },
-          { key: 'cancelled', label: '❌ Отменённые' },
-          { key: 'all', label: 'Все' }
-        ].map(tab => (
-          <button
-            key={tab.key}
-            style={{...styles.tab, ...(filter === tab.key ? styles.tabActive : {})}}
-            onClick={() => setFilter(tab.key)}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* Статистика */}
+      <div style={styles.stats}>
+        <div style={styles.statItem}>
+          <span style={styles.statNumber}>
+            {preorders.filter(p => p.status === 'new').length}
+          </span>
+          <span style={styles.statLabel}>Новых</span>
+        </div>
+        <div style={styles.statItem}>
+          <span style={styles.statNumber}>
+            {preorders.filter(p => p.status === 'confirmed').length}
+          </span>
+          <span style={styles.statLabel}>Подтверждённых</span>
+        </div>
+        <div style={styles.statItem}>
+          <span style={styles.statNumber}>
+            {preorders.reduce((sum, p) => 
+              ['new', 'confirmed'].includes(p.status) ? sum + (p.bouquet_price || 0) : sum
+            , 0)}₽
+          </span>
+          <span style={styles.statLabel}>Сумма активных</span>
+        </div>
       </div>
 
-      {loading ? (
-        <div style={styles.empty}>Загрузка...</div>
-      ) : preorders.length === 0 ? (
+      {/* Список предзаказов */}
+      {preorders.length === 0 ? (
         <div style={styles.empty}>
-          <p style={{ fontSize: '48px', marginBottom: '16px' }}>📭</p>
-          <p>Предзаказов не найдено</p>
+          <p>📭 Нет предзаказов</p>
         </div>
       ) : (
-        preorders.map(order => (
-          <div key={order.id} style={styles.card}>
-            <div style={styles.cardHeader}>
-              <div>
-                <div style={styles.cardTitle}>
-                  {order.bouquet_name}
-                </div>
-                <a 
-                  href={`https://vk.com/id${order.vk_user_id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ color: '#0077ff', fontSize: '14px' }}
-                >
-                  {order.user_name || `id${order.vk_user_id}`}
-                </a>
-              </div>
-              <span style={{...styles.badge, ...statusColors[order.status]}}>
-                {statusLabels[order.status]}
-              </span>
-            </div>
-
-            <div style={styles.grid}>
-              <div style={styles.field}>
-                <div style={styles.fieldLabel}>💰 Цена</div>
-                <div>{order.bouquet_price} ₽</div>
-              </div>
-              <div style={styles.field}>
-                <div style={styles.fieldLabel}>📅 Дата события</div>
-                <div>{formatDate(order.event_date)}</div>
-              </div>
-              <div style={styles.field}>
-                <div style={styles.fieldLabel}>📦 Тип</div>
-                <div>{order.delivery_type === 'delivery' ? '🚗 Доставка' : '🏪 Самовывоз'}</div>
-              </div>
-              <div style={styles.field}>
-                <div style={styles.fieldLabel}>👤 Получатель</div>
-                <div>{order.recipient_name}</div>
-              </div>
-              {order.delivery_type === 'delivery' && (
-                <>
-                  <div style={styles.field}>
-                    <div style={styles.fieldLabel}>📍 Адрес</div>
-                    <div>{order.delivery_address}</div>
-                  </div>
-                  <div style={styles.field}>
-                    <div style={styles.fieldLabel}>🕐 Время</div>
-                    <div>{order.delivery_time}</div>
-                  </div>
-                  <div style={styles.field}>
-                    <div style={styles.fieldLabel}>📞 Телефон</div>
-                    <div>{order.recipient_phone}</div>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div style={styles.actions}>
-              {order.status === 'new' && (
-                <>
-                  <button 
-                    style={{...styles.btn, background: '#4caf50', color: '#fff'}}
-                    onClick={() => updateStatus(order.id, 'confirmed')}
-                  >
-                    ✅ Подтвердить
-                  </button>
-                  <button 
-                    style={{...styles.btn, background: '#f44336', color: '#fff'}}
-                    onClick={() => updateStatus(order.id, 'cancelled')}
-                  >
-                    ❌ Отменить
-                  </button>
-                </>
-              )}
-              {order.status === 'confirmed' && (
-                <button 
-                  style={{...styles.btn, background: '#2196f3', color: '#fff'}}
-                  onClick={() => updateStatus(order.id, 'completed')}
-                >
-                  📦 Выполнен
-                </button>
-              )}
-            </div>
-          </div>
-        ))
+        <div style={styles.list}>
+          {preorders.map(preorder => (
+            <PreorderCard 
+              key={preorder.id} 
+              preorder={preorder}
+              onStatusChange={handleStatusChange}
+              formatDate={formatDate}
+              formatDeliveryDate={formatDeliveryDate}
+            />
+          ))}
+        </div>
       )}
     </div>
   );
 }
 
-export default Preorders;
+function PreorderCard({ preorder, onStatusChange, formatDate, formatDeliveryDate }) {
+  const [expanded, setExpanded] = useState(false);
+  const statusConfig = STATUS_CONFIG[preorder.status] || STATUS_CONFIG.new;
+  const nextStatuses = statusConfig.next || [];
+
+  return (
+    <div style={{
+      ...styles.card,
+      borderLeft: `4px solid ${statusConfig.color}`
+    }}>
+      {/* Заголовок */}
+      <div style={styles.cardHeader} onClick={() => setExpanded(!expanded)}>
+        <div style={styles.cardMain}>
+          <div style={styles.cardTitle}>
+            💐 {preorder.bouquet_name}
+          </div>
+          <div style={styles.cardSubtitle}>
+            👤 {preorder.recipient_name} • 📅 {formatDeliveryDate(preorder.delivery_date)}
+          </div>
+        </div>
+        <div style={styles.cardRight}>
+          <div style={{
+            ...styles.statusBadge,
+            background: statusConfig.bg,
+            color: statusConfig.color
+          }}>
+            {statusConfig.label}
+          </div>
+          <div style={styles.cardPrice}>{preorder.bouquet_price}₽</div>
+        </div>
+        <div style={styles.expandIcon}>{expanded ? '▲' : '▼'}</div>
+      </div>
+
+      {/* Развёрнутое содержимое */}
+      {expanded && (
+        <div style={styles.cardBody}>
+          <div style={styles.cardInfo}>
+            <div style={styles.infoRow}>
+              <span style={styles.infoLabel}>Клиент:</span>
+              <a 
+                href={`https://vk.com/id${preorder.vk_user_id}`} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                style={styles.link}
+              >
+                vk.com/id{preorder.vk_user_id}
+              </a>
+            </div>
+            <div style={styles.infoRow}>
+              <span style={styles.infoLabel}>Тип:</span>
+              <span>{preorder.delivery_type === 'self_pickup' ? '🏪 Самовывоз' : '🚗 Доставка'}</span>
+            </div>
+            {preorder.delivery_type === 'delivery' && (
+              <>
+                <div style={styles.infoRow}>
+                  <span style={styles.infoLabel}>Адрес:</span>
+                  <span>{preorder.delivery_address || '—'}</span>
+                </div>
+                <div style={styles.infoRow}>
+                  <span style={styles.infoLabel}>Время:</span>
+                  <span>{preorder.delivery_time || '—'}</span>
+                </div>
+                <div style={styles.infoRow}>
+                  <span style={styles.infoLabel}>Телефон:</span>
+                  <span>{preorder.recipient_phone || '—'}</span>
+                </div>
+              </>
+            )}
+            <div style={styles.infoRow}>
+              <span style={styles.infoLabel}>Создан:</span>
+              <span>{formatDate(preorder.created_at)}</span>
+            </div>
+          </div>
+
+          {/* Кнопки действий */}
+          {nextStatuses.length > 0 && (
+            <div style={styles.actions}>
+              {nextStatuses.map(status => (
+                <button
+                  key={status}
+                  style={{
+                    ...styles.actionBtn,
+                    background: STATUS_ACTIONS[status].color
+                  }}
+                  onClick={() => onStatusChange(preorder.id, status)}
+                >
+                  {STATUS_ACTIONS[status].label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const styles = {
+  container: {
+    padding: '20px',
+    maxWidth: '900px',
+    margin: '0 auto'
+  },
+  error: {
+    background: '#ffe0e0',
+    color: '#c00',
+    padding: '10px 15px',
+    borderRadius: '8px',
+    marginBottom: '20px'
+  },
+  filters: {
+    display: 'flex',
+    gap: '10px',
+    marginBottom: '20px'
+  },
+  filterBtn: {
+    padding: '10px 20px',
+    border: '1px solid #ddd',
+    borderRadius: '8px',
+    background: 'white',
+    cursor: 'pointer',
+    fontSize: '14px'
+  },
+  filterBtnActive: {
+    background: '#e91e63',
+    color: 'white',
+    border: '1px solid #e91e63'
+  },
+  stats: {
+    display: 'flex',
+    gap: '20px',
+    marginBottom: '25px',
+    flexWrap: 'wrap'
+  },
+  statItem: {
+    background: '#f8f9fa',
+    padding: '15px 25px',
+    borderRadius: '10px',
+    textAlign: 'center'
+  },
+  statNumber: {
+    display: 'block',
+    fontSize: '24px',
+    fontWeight: 'bold',
+    color: '#e91e63'
+  },
+  statLabel: {
+    fontSize: '13px',
+    color: '#666'
+  },
+  empty: {
+    textAlign: 'center',
+    padding: '40px',
+    color: '#999'
+  },
+  list: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '15px'
+  },
+  card: {
+    background: 'white',
+    borderRadius: '12px',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+    overflow: 'hidden'
+  },
+  cardHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    padding: '15px 20px',
+    cursor: 'pointer',
+    gap: '15px'
+  },
+  cardMain: {
+    flex: 1
+  },
+  cardTitle: {
+    fontWeight: 'bold',
+    fontSize: '16px',
+    marginBottom: '5px'
+  },
+  cardSubtitle: {
+    fontSize: '14px',
+    color: '#666'
+  },
+  cardRight: {
+    textAlign: 'right'
+  },
+  statusBadge: {
+    display: 'inline-block',
+    padding: '5px 10px',
+    borderRadius: '15px',
+    fontSize: '12px',
+    fontWeight: 'bold',
+    marginBottom: '5px'
+  },
+  cardPrice: {
+    fontSize: '18px',
+    fontWeight: 'bold',
+    color: '#4CAF50'
+  },
+  expandIcon: {
+    color: '#999',
+    fontSize: '12px'
+  },
+  cardBody: {
+    padding: '0 20px 20px',
+    borderTop: '1px solid #eee'
+  },
+  cardInfo: {
+    padding: '15px 0'
+  },
+  infoRow: {
+    display: 'flex',
+    padding: '8px 0',
+    borderBottom: '1px solid #f5f5f5'
+  },
+  infoLabel: {
+    width: '100px',
+    color: '#999',
+    fontSize: '14px'
+  },
+  link: {
+    color: '#2196F3',
+    textDecoration: 'none'
+  },
+  actions: {
+    display: 'flex',
+    gap: '10px',
+    paddingTop: '15px',
+    borderTop: '1px solid #eee',
+    marginTop: '10px'
+  },
+  actionBtn: {
+    padding: '10px 20px',
+    border: 'none',
+    borderRadius: '8px',
+    color: 'white',
+    fontWeight: 'bold',
+    cursor: 'pointer',
+    fontSize: '14px'
+  }
+};
