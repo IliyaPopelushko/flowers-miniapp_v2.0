@@ -1,0 +1,29 @@
+name: Cleanup Old Data
+
+on:
+  schedule:
+    # Каждое воскресенье в 3:00 ночи по Москве (00:00 UTC)
+    - cron: '0 0 * * 0'
+  workflow_dispatch: # Ручной запуск
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run cleanup
+        run: |
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            "${{ secrets.VERCEL_URL }}/api/cron/cleanup" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+          
+          echo "Response: $body"
+          echo "HTTP Code: $http_code"
+          
+          if [ "$http_code" != "200" ]; then
+            echo "Error: Cleanup failed"
+            exit 1
+          fi
