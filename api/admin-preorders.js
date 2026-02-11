@@ -56,9 +56,10 @@ export default async function handler(req, res) {
         `)
         .order('created_at', { ascending: false });
 
-      if (status && status !== 'all') {
-        query = query.eq('status', status);
-      }
+     if (status && status !== 'all') {
+  const statuses = status.split(',').map(s => s.trim());
+  query = query.in('status', statuses);
+}
 
       const { data: preorders, error } = await query;
 
