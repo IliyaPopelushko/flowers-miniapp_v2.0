@@ -54,6 +54,7 @@ export default async function handler(req, res) {
             recipient_name
           )
         `)
+        .eq('archived', false)
         .order('created_at', { ascending: false });
 
      if (status && status !== 'all') {
